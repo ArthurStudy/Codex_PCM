@@ -1,3 +1,11 @@
 data/
 __pycache__/
 *.pyc
+node_modules/
+.pnpm-store/
+.wrangler/
+dist/
+.dev.vars*
+.env*
+*.secrets.json
+worker-configuration.d.ts

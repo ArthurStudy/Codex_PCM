@@ -1,0 +1,202 @@
+{
+  "defaults": {
+    "assets": {
+      "tag": "",
+      "name": "",
+      "area": "",
+      "criticality": "B",
+      "manufacturer": "",
+      "model": "",
+      "serial": "",
+      "operating_hours_month": 0,
+      "notes": ""
+    },
+    "team": {
+      "name": "",
+      "specialty": "Mecânica",
+      "hours_day": 8,
+      "days_week": 5,
+      "shift": "1º turno",
+      "active": true
+    },
+    "materials": {
+      "code": "",
+      "name": "",
+      "unit": "un",
+      "quantity": 0,
+      "minimum": 0,
+      "unit_cost": 0,
+      "location": ""
+    },
+    "projects": {
+      "name": "",
+      "start": "",
+      "end": "",
+      "owner": "",
+      "notes": ""
+    },
+    "plans": {
+      "name": "",
+      "asset_id": "",
+      "type": "Preventiva",
+      "interval_days": 30,
+      "next_date": "",
+      "hours": 2,
+      "specialty": "Mecânica",
+      "checklist": "",
+      "active": true
+    },
+    "orders": {
+      "title": "",
+      "asset_id": "",
+      "type": "Preventiva",
+      "priority": "P3",
+      "status": "Aberta",
+      "shift": "1º turno",
+      "requested_date": "",
+      "due_date": "",
+      "scheduled_date": "",
+      "completed_date": "",
+      "assignee_id": "",
+      "estimated_hours": 2,
+      "actual_hours": 0,
+      "labor_rate": 0,
+      "material_cost": 0,
+      "downtime_hours": 0,
+      "failure": "",
+      "cause": "",
+      "action": "",
+      "description": "",
+      "checklist": "",
+      "blocker": "",
+      "project_id": "",
+      "plan_id": ""
+    }
+  },
+  "tables": {
+    "assets": [
+      "tag",
+      "name",
+      "area",
+      "criticality",
+      "manufacturer",
+      "model",
+      "serial",
+      "operating_hours_month",
+      "notes"
+    ],
+    "team": [
+      "name",
+      "specialty",
+      "hours_day",
+      "days_week",
+      "shift",
+      "active"
+    ],
+    "materials": [
+      "code",
+      "name",
+      "unit",
+      "quantity",
+      "minimum",
+      "unit_cost",
+      "location"
+    ],
+    "projects": [
+      "name",
+      "start",
+      "end",
+      "owner",
+      "notes"
+    ],
+    "plans": [
+      "name",
+      "asset_id",
+      "type",
+      "interval_days",
+      "next_date",
+      "hours",
+      "specialty",
+      "checklist",
+      "active"
+    ],
+    "orders": [
+      "title",
+      "asset_id",
+      "type",
+      "priority",
+      "status",
+      "shift",
+      "requested_date",
+      "due_date",
+      "scheduled_date",
+      "completed_date",
+      "assignee_id",
+      "estimated_hours",
+      "actual_hours",
+      "labor_rate",
+      "material_cost",
+      "downtime_hours",
+      "failure",
+      "cause",
+      "action",
+      "description",
+      "checklist",
+      "blocker",
+      "project_id",
+      "plan_id"
+    ]
+  },
+  "statuses": [
+    "Aberta",
+    "Em planejamento",
+    "Aguardando material",
+    "Programada",
+    "Em execução",
+    "Concluída",
+    "Cancelada"
+  ],
+  "types": [
+    "Preventiva",
+    "Corretiva",
+    "Preditiva",
+    "Inspeção",
+    "Melhoria"
+  ],
+  "shifts": [
+    "1º turno",
+    "2º turno",
+    "3º turno"
+  ],
+  "transitions": {
+    "Aberta": [
+      "Em planejamento",
+      "Aguardando material",
+      "Programada",
+      "Cancelada"
+    ],
+    "Em planejamento": [
+      "Aguardando material",
+      "Programada",
+      "Cancelada"
+    ],
+    "Aguardando material": [
+      "Em planejamento",
+      "Programada",
+      "Cancelada"
+    ],
+    "Programada": [
+      "Em planejamento",
+      "Aguardando material",
+      "Em execução",
+      "Cancelada"
+    ],
+    "Em execução": [
+      "Aguardando material",
+      "Concluída",
+      "Cancelada"
+    ],
+    "Concluída": [],
+    "Cancelada": []
+  }
+}

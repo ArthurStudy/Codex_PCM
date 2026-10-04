@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "codex-pcm",
+  "main": "cloudflare/worker.mjs",
+  "account_id": "b6729892824bd2bfe8fff7fc75b7b41d",
+  "compatibility_date": "2026-10-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "rules": [{ "type": "Text", "globs": ["**/public/*.html", "**/public/*.css", "**/public/app.js"], "fallthrough": true }],
+  "durable_objects": {
+    "bindings": [{ "name": "PCM_WORKSPACE", "class_name": "PCMWorkspace" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PCMWorkspace"] }],
+  "vars": {
+    "WORKSPACE_ID": "pcm-arthurstudy-v1",
+    "ACCESS_TEAM_DOMAIN": "https://wispy-dream-0715.cloudflareaccess.com",
+    "ACCESS_AUD": ""
+  },
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}

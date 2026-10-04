@@ -2,6 +2,8 @@
 
 Aplicação individual para planejamento e controle de manutenção de uma fábrica de lavadoras, com células kanban, linha principal e três turnos. Interface em português. Python e SQLite, sem dependências externas ou conexão com internet.
 
+Além da versão local abaixo, o projeto inclui uma versão para **Cloudflare Workers**, com banco SQLite persistente e acesso privado por Cloudflare Access. A preparação, os testes e as etapas pendentes de publicação estão em [CLOUDFLARE.md](CLOUDFLARE.md). A versão online ainda depende da conclusão das permissões e da configuração de hospedagem.
+
 ## Abrir
 
 Dê dois cliques em **Iniciar PCM.cmd**. O iniciador encontra o Python local (ou o Python do Codex), inicia o servidor em segundo plano e abre `http://127.0.0.1:8765/` no navegador. Execute o mesmo arquivo para reabrir. O servidor aceita apenas conexões deste computador.
@@ -48,7 +50,7 @@ Salve alterações antes de avançar a etapa. Datas futuras de solicitação e c
 - Planos geram OS mediante ação do usuário; não há execução automática em segundo plano.
 - Materiais possuem saldo manual; consumo e custo da OS não movimentam estoque automaticamente.
 - Roteiro/procedimento é texto; não há upload de anexos ou checklist assinado.
-- Uso local individual, sem login, multiusuário ou integrações ERP/MES. Não exponha a porta à rede.
+- A versão Python é de uso local individual, sem login. Não exponha a porta à rede. A versão Cloudflare exige login do proprietário via Access; não implementa equipes com diferentes permissões nem integrações ERP/MES.
 - Backup JSON inclui os registros e uma cópia do histórico. Na restauração os registros são substituídos; o histórico do computador mantém a trilha da restauração. Não é um sistema de auditoria imutável.
 
 ## Testes
