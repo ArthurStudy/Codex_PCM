@@ -9,3 +9,4 @@ dist/
 .env*
 *.secrets.json
 worker-configuration.d.ts
+.github-sync/

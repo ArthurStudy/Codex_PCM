@@ -174,6 +174,46 @@ class PCMFlowTests(unittest.TestCase):
         query['area'] = 'Célula distinta'
         self.assertEqual(self.call('GET', '/api/metrics?' + urlencode(query))['backlog_count'], 0)
 
+    def test_productivity_capacity_backup_legacy_and_persistence(self):
+        self.new_order()
+        def save(rate):
+            person = next(t for t in self.state()['team'] if t['id'] == self.tech)
+            self.call('PUT', '/api/team/' + str(self.tech), dict(person, productivity_rate=rate))
+        self.assertEqual(self.state()['team'][0]['productivity_rate'], 100)
+        save(50)
+        self.assertEqual(self.metrics()['weekly_capacity'], 20)
+        self.assertEqual(self.metrics()['backlog_weeks'], .2)
+        pcm.initialize()
+        self.assertEqual(self.state()['team'][0]['productivity_rate'], 50)
+        backup = self.call('GET', '/api/backup')
+        self.assertEqual(backup['data']['team'][0]['productivity_rate'], 50)
+        save(0)
+        self.assertEqual(self.metrics()['weekly_capacity'], 0)
+        self.assertIsNone(self.metrics()['backlog_weeks'])
+        self.call('POST', '/api/restore', backup)
+        self.assertEqual(self.state()['team'][0]['productivity_rate'], 50)
+        del backup['data']['team'][0]['productivity_rate']
+        self.call('POST', '/api/restore', backup)
+        self.assertEqual(self.state()['team'][0]['productivity_rate'], 100)
+        self.assertEqual(self.metrics()['weekly_capacity'], 40)
+        self.create('team', dict(name='Segundo turno', shift='2º turno', productivity_rate=25))
+        self.create('team', dict(name='Inativo', active=False, productivity_rate=100))
+        self.assertEqual(self.metrics()['weekly_capacity'], 50)
+        query = urlencode(dict(start=self.yesterday, end=self.today, shift='2º turno'))
+        self.assertEqual(self.call('GET', '/api/metrics?' + query)['weekly_capacity'], 10)
+
+    def test_invalid_productivity_is_rejected_atomically(self):
+        before = self.state()
+        person = before['team'][0]
+        for rate in [-1, 100.01, None, True, [], {}, '', 'abc', float('inf')]:
+            with self.subTest(rate=rate):
+                self.call('PUT', '/api/team/' + str(self.tech), dict(person, productivity_rate=rate), expected=400)
+                self.assertEqual(self.state(), before)
+        backup = self.call('GET', '/api/backup')
+        backup['data']['team'][0]['productivity_rate'] = 101
+        self.call('POST', '/api/restore', backup, expected=400)
+        self.assertEqual(self.state(), before)
+
     def test_completion_date_and_terminal_transition_are_guarded(self):
         rid = self.new_order()
         self.update(rid, status='Programada', scheduled_date=self.today, assignee_id=self.tech)

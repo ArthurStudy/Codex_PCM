@@ -115,10 +115,12 @@ test('Reabertura da base SQLite preserva registros sem repetir a demonstração'
   const path = join(dir,'db.sqlite');
   let connection = open(path);
   const id = connection.db.handle('POST','/api/assets',{tag:'PERSIST',name:'Persistência',area:'Teste'}).id;
+  const technician = connection.db.handle('POST','/api/team',{name:'Taxa persistida',productivity_rate:37.5}).id;
   const count = connection.db.state().assets.length;
   connection.raw.close();
   connection = open(path);
   assert.equal(connection.db.get('assets',id).name,'Persistência');
+  assert.equal(connection.db.get('team',technician).productivity_rate,37.5);
   assert.equal(connection.db.state().assets.length,count);
   connection.raw.close();
 });
@@ -131,6 +133,44 @@ test('Entradas malformadas, referências, datas e códigos duplicados são rejei
   assert.throws(() => db.handle('POST','/api/assets',[]));
   assert.equal(validDate('2024-02-29'),true);
   assert.equal(validDate('2025-02-29'),false);
+});
+
+test('Produtividade ajusta capacidade e backlog, preservando backup e legado',t => {
+  const {db,tech,order,metric,create} = setup(t);
+  order();
+  const save = rate => db.handle('PUT',`/api/team/${tech}`,{...db.get('team',tech),productivity_rate:rate});
+  assert.equal(db.get('team',tech).productivity_rate,100);
+  save(50);
+  assert.equal(metric().weekly_capacity,20);
+  assert.equal(metric().backlog_weeks,0.2);
+  const backup = db.handle('GET','/api/backup');
+  assert.equal(backup.data.team[0].productivity_rate,50);
+  save(0);
+  assert.equal(metric().weekly_capacity,0);
+  assert.equal(metric().backlog_weeks,null);
+  db.handle('POST','/api/restore',backup);
+  assert.equal(db.get('team',tech).productivity_rate,50);
+  delete backup.data.team[0].productivity_rate;
+  db.handle('POST','/api/restore',backup);
+  assert.equal(db.get('team',tech).productivity_rate,100);
+  assert.equal(metric().weekly_capacity,40);
+  create('team',{name:'Segundo turno',shift:'2º turno',productivity_rate:25});
+  create('team',{name:'Inativo',active:false,productivity_rate:100});
+  assert.equal(metric().weekly_capacity,50);
+  assert.equal(metric({shift:'2º turno'}).weekly_capacity,10);
+});
+
+test('Produtividade inválida não altera registros nem histórico',t => {
+  const {db,tech} = setup(t);
+  const before = db.state();
+  for (const rate of [-1,100.01,null,true,[],{},'', 'abc',Infinity]) {
+    assert.throws(() => db.handle('PUT',`/api/team/${tech}`,{...db.get('team',tech),productivity_rate:rate}),String(rate));
+    assert.deepEqual(db.state(),before);
+  }
+  const backup = db.handle('GET','/api/backup');
+  backup.data.team[0].productivity_rate=101;
+  assert.throws(() => db.handle('POST','/api/restore',backup));
+  assert.deepEqual(db.state(),before);
 });
 
 test('Autenticação valida assinatura, e-mail, emissor, audiência e expiração',async () => {

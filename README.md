@@ -40,7 +40,7 @@ Salve alterações antes de avançar a etapa. Datas futuras de solicitação e c
 ## Critérios e limites
 
 - **Backlog:** retrato atual das OS não concluídas e não canceladas. Soma HH estimados; não subtrai apontamentos parciais. Não é histórico por período.
-- **Capacidade:** soma horas/dia × dias/semana dos profissionais ativos, filtrada por turno. Técnicos não têm lotação exclusiva por área, portanto filtrar área reduz o backlog, mas não a capacidade compartilhada do turno. Calendário não administra férias, feriados ou indisponibilidades.
+- **Capacidade:** soma horas/dia × dias/semana × taxa de produtividade ÷ 100 dos profissionais ativos, filtrada por turno. Técnicos não têm lotação exclusiva por área, portanto filtrar área reduz o backlog, mas não a capacidade compartilhada do turno. Calendário não administra férias, feriados ou indisponibilidades.
 - **Aderência:** OS concluídas até a programação atual ÷ OS programadas devidas no período até hoje, excluindo canceladas. Reprogramação altera a referência; não existe uma programação congelada.
 - **MTTR registrado:** parada total das corretivas concluídas com parada > 0 ÷ quantidade dessas OS. Uma OS representa um evento. Eventos sobrepostos não são consolidados.
 - **Custo:** HH reais × custo/HH + custo de materiais das OS concluídas no período. Valores não informados permanecem zero; não há integração contábil.
@@ -58,3 +58,24 @@ Salve alterações antes de avançar a etapa. Datas futuras de solicitação e c
 `python -m unittest discover -s tests -v`
 
 Os testes usam bancos temporários e um servidor isolado. Não modificam os registros do usuário. Consulte `RELATORIO_TESTES.md` para os cenários e resultados da revisão independente.
+
+### Planejamento × capacidade na visão geral
+
+O painel compara HH estimados de OS abertas com data programada à capacidade útil dos técnicos ativos. Permite filtrar técnico e intervalo (até 366 dias), agrupar por dia ou semana e clicar nas colunas para consultar/editar OS. O gráfico usa barras verticais lado a lado, eixo vertical em HH e períodos no eixo horizontal, com rolagem para intervalos longos. A sobrecarga soma excessos por técnico/dia, sem compensar conflitos com folgas de outros recursos.
+
+A escala nominal conta os dias/semana a partir de segunda-feira; frações usam horas proporcionais. Feriados, férias e ausências não são descontados. OS sem responsável entram na demanda com alerta; técnicos inativos têm capacidade zero. Concluídas, canceladas e OS sem data ficam fora. O formato de backup permanece pcm-backup-v1.
+
+Teste dos cálculos: `node --test tests/capacity.test.mjs` (também incluído em `npm test`).
+
+### Taxa de produtividade por profissional
+
+O cadastro de equipe aceita uma taxa de 0 a 100%. A meta produtiva diária é horas totais × taxa ÷ 100: 8 h a 50% equivalem a 4 h/dia e, em 5 dias, 20 HH/semana. O formulário mostra a meta antes de salvar. Painel, ocupação, saldo, sobrecarga da programação, capacidade por turno e semanas de backlog usam essa capacidade ajustada. Horas realizadas, custos, MTTR e aderência continuam baseados nos registros das OS.
+
+Cadastros e backups antigos sem `productivity_rate` assumem 100%. O campo é persistido nos servidores local e Cloudflare e incluído no backup JSON. Taxa zero representa capacidade produtiva zero; razões sem capacidade são exibidas sem divisão por zero. Alterar a taxa recalcula a capacidade atual; não há histórico de taxas por período.
+
+### Exportação Excel de ordens de serviço
+
+Na aba Ordens de serviço, Exportar Excel baixa um arquivo .xlsx com os mesmos filtros e campos da exportação CSV. A planilha contém cabeçalho destacado, linhas alternadas, filtros por coluna, cabeçalho e duas primeiras colunas fixos, datas dd/mm/aaaa e custos em reais. A geração ocorre no navegador, sem serviços externos.
+
+Validação independente: quatro testes de exportação e leitura com openpyxl sem avisos. O Excel não estava instalado no ambiente de teste; a aparência no aplicativo real não foi confirmada.
+

@@ -9,7 +9,7 @@ export class InputError extends Error {
 const fail = (message, status) => { throw new InputError(message, status); };
 const { defaults, tables, statuses, types, shifts, transitions } = model;
 const names = Object.keys(tables);
-const numeric = new Set(['hours_day','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']);
+const numeric = new Set(['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']);
 const dates = new Set(['start','end','next_date','requested_date','due_date','scheduled_date','completed_date']);
 const foreign = { asset_id:'assets', assignee_id:'team', project_id:'projects', plan_id:'plans' };
 const required = { assets:['tag','name','area'],team:['name'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
@@ -79,6 +79,7 @@ export class PCMDatabase {
     }
     if (['orders','plans'].includes(table) && !types.includes(data.type)) fail('Tipo inválido.');
     if (table === 'assets' && !['A','B','C'].includes(data.criticality)) fail('Criticidade inválida.');
+    if (table === 'team' && data.productivity_rate > 100) fail('Taxa de produtividade deve ser entre 0 e 100%.');
     if (table === 'team' && data.hours_day > 24) fail('Capacidade diária deve ser até 24 h.');
     if (table === 'team' && (data.days_week < 1 || data.days_week > 7)) fail('Dias de trabalho por semana devem ser entre 1 e 7.');
     if (['team','orders'].includes(table) && !shifts.includes(data.shift)) fail('Selecione um dos três turnos.');
@@ -121,7 +122,7 @@ export class PCMDatabase {
     const onTime = planned.filter(o => o.status === 'Concluída' && o.completed_date <= o.scheduled_date);
     const failures = completed.filter(o => o.type === 'Corretiva' && o.downtime_hours > 0);
     const hours = sum(active, 'estimated_hours');
-    const weekly = state.team.filter(t => t.active && (!shift || t.shift === shift)).reduce((n,t) => n + t.hours_day * t.days_week, 0);
+    const weekly = state.team.filter(t => t.active && (!shift || t.shift === shift)).reduce((n,t) => n + t.hours_day * t.days_week * (t.productivity_rate ?? 100) / 100, 0);
     return { backlog_count:active.length,backlog_hours:hours,backlog_weeks:weekly ? hours / weekly : null,weekly_capacity:weekly,
       completed:completed.length,completed_hours:sum(completed,'actual_hours'),cost:completed.reduce((n,o) => n + o.actual_hours * o.labor_rate + o.material_cost,0),
       planned:planned.length,on_time:onTime.length,adherence:planned.length ? 100 * onTime.length / planned.length : null,

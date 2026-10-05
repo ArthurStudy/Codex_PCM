@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('PCM_DB', ROOT / 'data' / 'pcm.sqlite3'))
 TABLES = {
  'assets': ['tag','name','area','criticality','manufacturer','model','serial','operating_hours_month','notes'],
- 'team': ['name','specialty','hours_day','days_week','shift','active'],
+ 'team': ['name','specialty','hours_day','productivity_rate','days_week','shift','active'],
  'materials': ['code','name','unit','quantity','minimum','unit_cost','location'],
  'projects': ['name','start','end','owner','notes'],
  'plans': ['name','asset_id','type','interval_days','next_date','hours','specialty','checklist','active'],
@@ -24,7 +24,7 @@ TABLES = {
 }
 DEFAULTS = {
  'assets': dict(tag='',name='',area='',criticality='B',manufacturer='',model='',serial='',operating_hours_month=0,notes=''),
- 'team': dict(name='',specialty='Mecânica',hours_day=8,days_week=5,shift='1º turno',active=True),
+ 'team': dict(name='',specialty='Mecânica',hours_day=8,productivity_rate=100,days_week=5,shift='1º turno',active=True),
  'materials': dict(code='',name='',unit='un',quantity=0,minimum=0,unit_cost=0,location=''),
  'projects': dict(name='',start='',end='',owner='',notes=''),
  'plans': dict(name='',asset_id='',type='Preventiva',interval_days=30,next_date='',hours=2,specialty='Mecânica',checklist='',active=True),
@@ -66,7 +66,7 @@ def metrics(state, start, end, area='', shift=''):
     on_time=[o for o in planned if o['status']=='Concluída' and o['completed_date']<=o['scheduled_date']]
     failures=[o for o in completed if o['type']=='Corretiva' and o['downtime_hours']>0]
     hours=sum(o['estimated_hours'] for o in active)
-    weekly=sum(t['hours_day']*t.get('days_week',5) for t in state['team'] if t['active'] and (not shift or t.get('shift','1º turno')==shift))
+    weekly=sum(t['hours_day']*t.get('days_week',5)*t.get('productivity_rate',100)/100 for t in state['team'] if t['active'] and (not shift or t.get('shift','1º turno')==shift))
     return dict(backlog_count=len(active), backlog_hours=hours, backlog_weeks=hours/weekly if weekly else None,
         weekly_capacity=weekly, completed=len(completed), completed_hours=sum(o['actual_hours'] for o in completed),
         cost=sum(o['actual_hours']*o['labor_rate']+o['material_cost'] for o in completed),
@@ -119,7 +119,7 @@ def validate(db, table, incoming):
     for key in required[table]:
         if not str(data[key]).strip(): raise ValueError(f'Preencha o campo {key}.')
     for key,value in data.items():
-        if key in ['hours_day','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']:
+        if key in ['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']:
             try: data[key]=float(value)
             except (ValueError,TypeError): raise ValueError(f'Número inválido: {key}.')
             if not 0 <= data[key] <= 100000000: raise ValueError(f'Valor fora do limite: {key}.')
@@ -137,6 +137,7 @@ def validate(db, table, incoming):
             raise ValueError(f'Texto inválido: {key}.')
     if table in ['orders','plans'] and data['type'] not in TYPES: raise ValueError('Tipo inválido.')
     if table=='assets' and data['criticality'] not in ['A','B','C']: raise ValueError('Criticidade inválida.')
+    if table=='team' and (isinstance(incoming.get('productivity_rate'),bool) or data['productivity_rate']>100): raise ValueError('Taxa de produtividade deve ser entre 0 e 100%.')
     if table=='team' and data['hours_day']>24: raise ValueError('Capacidade diária deve ser até 24 h.')
     if table=='team' and not 1<=data['days_week']<=7: raise ValueError('Dias de trabalho por semana devem ser entre 1 e 7.')
     if table in ['team','orders'] and data['shift'] not in SHIFTS: raise ValueError('Selecione um dos três turnos.')
@@ -188,7 +189,7 @@ class Handler(BaseHTTPRequestHandler):
                 state['audit']=[dict(r) for r in db.execute('SELECT * FROM audit ORDER BY id')]
             return self.send_json(dict(format='pcm-backup-v1',exported_at=datetime.now().isoformat(),data=state))
         path=self.path.split('?')[0]
-        allowed={'/':'index.html','/app.js':'app.js','/style.css':'style.css'}
+        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/style.css':'style.css'}
         if path not in allowed: return self.send_json({'error':'Não encontrado'},404)
         file=ROOT/'public'/allowed[path]
         raw=file.read_bytes(); self.send_response(200); self.send_header('Content-Type',mimetypes.guess_type(file)[0]+'; charset=utf-8'); self.send_header('Content-Length',str(len(raw))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(raw)

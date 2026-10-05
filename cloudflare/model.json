@@ -17,7 +17,8 @@
       "hours_day": 8,
       "days_week": 5,
       "shift": "1º turno",
-      "active": true
+      "active": true,
+      "productivity_rate": 100
     },
     "materials": {
       "code": "",
@@ -91,7 +92,8 @@
       "hours_day",
       "days_week",
       "shift",
-      "active"
+      "active",
+      "productivity_rate"
     ],
     "materials": [
       "code",

@@ -4,6 +4,7 @@ import { authorize } from './auth.mjs';
 // Text modules keep the small interface and API in the same authenticated deployment.
 import html from '../public/index.html';
 import javascript from '../public/app.js';
+import excelJavascript from '../public/excel-export.js';
 import css from '../public/style.css';
 
 export class PCMWorkspace extends DurableObject {
@@ -73,7 +74,7 @@ export default {
         return json(result.body,result.status);
       }
       if (!['GET','HEAD'].includes(request.method)) return json({ error:'Método não permitido.' },405);
-      const assets = { '/':[html,'text/html'], '/index.html':[html,'text/html'], '/app.js':[javascript,'application/javascript'], '/style.css':[css,'text/css'] };
+      const assets = { '/':[html,'text/html'], '/index.html':[html,'text/html'], '/app.js':[javascript,'application/javascript'], '/excel-export.js':[excelJavascript,'application/javascript'], '/style.css':[css,'text/css'] };
       if (!Object.hasOwn(assets,url.pathname)) return json({ error:'Não encontrado.' },404);
       const [body,type] = assets[url.pathname];
       return new Response(request.method === 'HEAD' ? null : body,{ headers:{ ...headers,'Content-Type':type + '; charset=utf-8' } });

@@ -1,5 +1,6 @@
 # Orientações deste projeto
 
+- Construir primeiro a menor versão confiável que resolva o problema principal. A evolução deve acontecer por incrementos pequenos, testáveis e reversíveis.
 - O repositório oficial é https://github.com/ArthurStudy/Codex_PCM, branch `main`.
 - O usuário pediu que todas as atualizações do projeto sejam também enviadas ao GitHub. Ao concluir alterações, valide-as e sincronize os arquivos relevantes com esse repositório. Informe qualquer bloqueio de envio; não diga que sincronizou sem conferir.
 - A hospedagem de destino é Cloudflare. Preserve o funcionamento da versão local e a compatibilidade dos backups.
