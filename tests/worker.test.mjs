@@ -190,3 +190,13 @@ test('Autenticação valida assinatura, e-mail, emissor, audiência e expiraçã
   parts[1] = Buffer.from(JSON.stringify({email:env.ALLOWED_EMAIL,sub:'fake',aud:env.ACCESS_AUD,iss:env.ACCESS_TEAM_DOMAIN,exp:9999999999})).toString('base64url');
   assert.equal(await authorize(request(parts.join('.')),env,resolver),null);
 });
+
+test('Autenticação aceita a identidade nativa do Access vinculada ao Worker',async () => {
+  const env = {ACCESS_TEAM_DOMAIN:'https://test.cloudflareaccess.com',ACCESS_AUD:'pcm-test',ALLOWED_EMAIL:'owner@example.com'};
+  const request = new Request('https://pcm.example/');
+  const valid = {aud:'pcm-test',getIdentity:async()=>({id:'owner-id',email:'OWNER@example.com'})};
+  assert.deepEqual(await authorize(request,env,undefined,valid),{email:'OWNER@example.com',subject:'owner-id'});
+  assert.equal(await authorize(request,env,undefined,{...valid,aud:'other'}),null);
+  assert.equal(await authorize(request,env,undefined,{...valid,getIdentity:async()=>({email:'intruso@example.com'})}),null);
+});
+
