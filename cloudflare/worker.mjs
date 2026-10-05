@@ -54,10 +54,10 @@ async function boundedJson(request) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
-      const identity = await authorize(request,env);
+      const identity = await authorize(request,env,undefined,ctx?.access);
       if (!identity) return json({ error:'Entre com sua conta autorizada pelo Cloudflare Access.' },401);
       if (url.pathname.startsWith('/api/')) {
         if (!['GET','POST','PUT','DELETE'].includes(request.method)) return json({ error:'Método não permitido.' },405);
@@ -85,3 +85,4 @@ export default {
     }
   }
 };
+
