@@ -15,7 +15,7 @@
   "vars": {
     "WORKSPACE_ID": "pcm-arthurstudy-v1",
     "ACCESS_TEAM_DOMAIN": "https://wispy-dream-0715.cloudflareaccess.com",
-    "ACCESS_AUD": ""
+    "ACCESS_AUD": "9f5c005e195a525c0190f51dba3b189bbce07fdf3ec40ea0d5a0797fa35dd30e"
   },
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }
