@@ -1,6 +1,6 @@
 # PCM — Central de manutenção
 
-Aplicação individual para planejamento e controle de manutenção de uma fábrica de lavadoras, com células kanban, linha principal e três turnos. Interface em português. Python e SQLite, sem dependências externas ou conexão com internet.
+Aplicação individual para planejamento e controle de manutenção de uma fábrica de lavadoras, organizada por linhas de produção, máquinas e três turnos. Interface em português. Python e SQLite, sem dependências externas ou conexão com internet.
 
 Além da versão local abaixo, o projeto inclui uma versão para **Cloudflare Workers**, com banco SQLite persistente e acesso privado por Cloudflare Access. A preparação, os testes e as etapas pendentes de publicação estão em [CLOUDFLARE.md](CLOUDFLARE.md). A versão online ainda depende da conclusão das permissões e da configuração de hospedagem.
 
@@ -14,7 +14,7 @@ Os registros ficam em `data/pcm.sqlite3`. A primeira abertura cria uma base demo
 
 ## Fluxo de trabalho
 
-1. **Ativos e células:** cadastrar TAG, equipamento, área/célula e criticidade.
+1. **Linhas de produção e máquinas:** cadastrar cada máquina com TAG e linha. OS, planos, programação, indicadores e exportações apontam para a máquina e exibem sua linha. Utilidades e classificações legadas podem permanecer sem linha.
 2. **Equipe e capacidade:** cadastrar especialidade, turno, horas disponíveis por dia e dias por semana.
 3. **Ordens de serviço:** abrir a solicitação com ativo, tipo, prioridade, prazo e HH estimados. A OS entra imediatamente no backlog.
 4. Abrir a OS e usar **Planejar**, **Aguardar material** ou **Programar**. A programação exige data e responsável no turno correspondente. Os botões de avanço abrem um formulário de revisão; a etapa muda somente quando salva.
@@ -57,7 +57,9 @@ Salve alterações antes de avançar a etapa. Datas futuras de solicitação e c
 
 `python -m unittest discover -s tests -v`
 
-Os testes usam bancos temporários e um servidor isolado. Não modificam os registros do usuário. Consulte `RELATORIO_TESTES.md` para os cenários e resultados da revisão independente.
+Para uma validação integrada, execute `npm run test:100`. O comando recompila a versão Cloudflare em modo dry-run e roda 100 testes locais: 62 cenários adicionais de aceitação, os testes JavaScript existentes, a integração Miniflare e os testes Python via HTTP com SQLite temporário. Não publica no GitHub ou Cloudflare e não usa o banco local em `data/`. Requer dependências instaladas, Node.js e Python 3.
+
+Os testes usam bancos em memória/temporários e um servidor isolado. Não modificam os registros do usuário. Consulte `RELATORIO_TESTES.md` para os cenários e resultados da revisão independente.
 
 ### Planejamento × capacidade na visão geral
 
@@ -78,4 +80,3 @@ Cadastros e backups antigos sem `productivity_rate` assumem 100%. O campo é per
 Na aba Ordens de serviço, Exportar Excel baixa um arquivo .xlsx com os mesmos filtros e campos da exportação CSV. A planilha contém cabeçalho destacado, linhas alternadas, filtros por coluna, cabeçalho e duas primeiras colunas fixos, datas dd/mm/aaaa e custos em reais. A geração ocorre no navegador, sem serviços externos.
 
 Validação independente: quatro testes de exportação e leitura com openpyxl sem avisos. O Excel não estava instalado no ambiente de teste; a aparência no aplicativo real não foi confirmada.
-

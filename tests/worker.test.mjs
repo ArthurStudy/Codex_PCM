@@ -33,6 +33,16 @@ function setup(t) {
   return {db,create,asset,tech,order,update,metric};
 }
 
+test('Importação de OS cria lote válido e reverte todo o lote quando uma linha falha',t => {
+  const {db,asset} = setup(t);
+  const valid = {title:'Inspeção em lote',asset_id:asset,type:'Inspeção',priority:'P3',status:'Aberta',shift:'1º turno',requested_date:'2026-10-03',estimated_hours:2};
+  const result = db.handle('POST','/api/orders/import',{orders:[valid,{...valid,title:'Lubrificação em lote',estimated_hours:3}]});
+  assert.equal(result.count,2);
+  assert.equal(db.state().orders.length,2);
+  assert.throws(() => db.handle('POST','/api/orders/import',{orders:[{...valid,title:'Deve reverter'},{...valid,title:'Inválida',asset_id:999}]}),/Linha 3/);
+  assert.equal(db.state().orders.length,2);
+});
+
 test('OS completa preserva fluxo, custos, indicadores e trilha de alterações',t => {
   const {db,tech,order,update,metric} = setup(t);
   const id = order();
@@ -173,6 +183,38 @@ test('Produtividade inválida não altera registros nem histórico',t => {
   assert.deepEqual(db.state(),before);
 });
 
+test('Máquinas pertencem a linhas distintas e OS, planos e backups preservam o vínculo',t => {
+  const {db,create,asset,order} = setup(t);
+  const first = db.handle('PUT','/api/assets/'+asset,{...db.get('assets',asset),production_line:'Linha A',area:''});
+  assert.equal(first.id,asset);
+  const second = create('assets',{tag:'TEST-02',name:'Prensa',production_line:'Linha B'});
+  const sameLine = create('assets',{tag:'TEST-05',name:'Esteira adicional',production_line:'  linha a  '});
+  assert.equal(db.get('assets',sameLine).production_line,'Linha A');
+  const otherLine = create('assets',{tag:'TEST-03',name:'Compressor',area:'Utilidades'});
+  assert.throws(() => create('assets',{tag:'TEST-04',name:'Inválido',production_line:'Linha A',area:'Utilidades'}),/linha de produção ou uma área legada/);
+  const jobId = order({title:'Manutenção Linha A',asset_id:asset});
+  const planId = create('plans',{name:'Rotina Linha B',asset_id:second,next_date:'2026-10-20'});
+  assert.equal(db.get('orders',jobId).asset_id,asset);
+  assert.equal(db.get('plans',planId).asset_id,second);
+  const backup = db.handle('GET','/api/backup');
+  const backupAssets = new Map(backup.data.assets.map(row => [row.id,row]));
+  assert.equal(backupAssets.get(asset).production_line,'Linha A');
+  assert.equal(backupAssets.get(second).production_line,'Linha B');
+  assert.equal(backupAssets.get(otherLine).production_line,'');
+  assert.equal(db.metrics({start:'2026-10-01',end:'2026-10-04',area:'Linha A'}).backlog_count,1);
+  db.handle('POST','/api/restore',backup);
+  assert.equal(db.get('assets',asset).production_line,'Linha A');
+  assert.equal(db.get('plans',planId).asset_id,second);
+});
+
+test('Backup antigo de ativos sem linha continua restaurável',t => {
+  const {db,asset} = setup(t);
+  const backup = db.handle('GET','/api/backup');
+  backup.data.assets = backup.data.assets.map(row => { const {production_line,...legacy}=row; return legacy; });
+  db.handle('POST','/api/restore',backup);
+  assert.equal(db.get('assets',asset).production_line,'');
+});
+
 test('Autenticação valida assinatura, e-mail, emissor, audiência e expiração',async () => {
   const {publicKey,privateKey} = await generateKeyPair('RS256');
   const jwk = await exportJWK(publicKey);
@@ -199,4 +241,3 @@ test('Autenticação aceita a identidade nativa do Access vinculada ao Worker',a
   assert.equal(await authorize(request,env,undefined,{...valid,aud:'other'}),null);
   assert.equal(await authorize(request,env,undefined,{...valid,getIdentity:async()=>({email:'intruso@example.com'})}),null);
 });
-

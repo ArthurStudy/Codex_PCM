@@ -37,3 +37,15 @@ O proprietário solicitou o envio da versão atual para `ArthurStudy/Codex_PCM`,
 - Compilação `wrangler deploy --dry-run --outdir dist` concluída, sem publicação remota.
 
 Total: **34 testes aprovados**. O pacote para versionamento inclui código, testes, configuração sem segredos e documentação. Banco local, dependências, caches, credenciais e arquivos gerados ficam fora do envio. Esta validação não representa publicação nem validação de login na infraestrutura Cloudflare de produção.
+
+## Validação independente de aceitação — 05/10/2026
+
+O inventário executável deste checkout foi de 26 testes Node existentes, 11 testes Python via HTTP/SQLite temporário e 1 integração Miniflare. O registro histórico acima de 34 testes corresponde a uma versão anterior da suíte.
+
+Foram acrescentados 62 testes sem alterar código de produção ou a suíte preexistente. Eles cobrem datas civis, rotas e estado, auditoria, schemas de ativos/equipe/materiais/projetos/planos, regras e transições de OS, datas e referências, validação de capacidade/produtividade, limites de importação e integridade de backup, compatibilidade de cadastro legado, e leitura/validação de XLSX produzido pelo exportador.
+
+Comando reproduzível: `pnpm run test:100`. Resultado nesta revisão: compilação Cloudflare em dry-run aprovada; **89/89 testes Node aprovados** (26 existentes + 62 adicionais + 1 runtime); **11/11 testes Python aprovados**; total **100/100**. O runner falha se não detectar exatamente 100 testes ou se qualquer etapa falhar. A suíte usa SQLite em memória/temporário. Não acessa `data/pcm.sqlite3`, o servidor local da porta 8765, GitHub ou Cloudflare remoto.
+
+Achado da revisão independente, já corrigido: a API local agora rejeita booleanos em campos numéricos, alinhando as validações local e Cloudflare. O teste Python existente foi ampliado para cobrir horas, produtividade e rollback de backup; o número de casos permanece em **100/100 aprovados**.
+
+Limites: os 6 cenários de XLSX usam o importador e exportador reais em um contexto de navegador simulado; não foi feita uma inspeção visual do painel em navegador real com resoluções desktop/celular, nem foi testado um login por e-mail no Cloudflare Access de produção. O login do Worker foi simulado localmente com chaves e JWT descartáveis. O servidor local está disponível em `http://127.0.0.1:8765/` para a validação manual do proprietário. GitHub e Cloudflare remoto aguardam essa validação manual.

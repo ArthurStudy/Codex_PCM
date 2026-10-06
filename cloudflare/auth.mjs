@@ -19,4 +19,3 @@ export async function authorize(request, env, resolver, access) {
     return { email:payload.email, subject:payload.sub };
   } catch { return null; }
 }
-

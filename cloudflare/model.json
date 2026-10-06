@@ -9,7 +9,8 @@
       "model": "",
       "serial": "",
       "operating_hours_month": 0,
-      "notes": ""
+      "notes": "",
+      "production_line": ""
     },
     "team": {
       "name": "",
@@ -78,6 +79,7 @@
     "assets": [
       "tag",
       "name",
+      "production_line",
       "area",
       "criticality",
       "manufacturer",

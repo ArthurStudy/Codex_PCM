@@ -5,26 +5,28 @@
       {
         "tag": "MON-001",
         "name": "Estação de montagem do cesto",
-        "area": "Linha principal",
+        "area": "",
         "criticality": "A",
         "manufacturer": "",
         "model": "",
         "serial": "",
         "operating_hours_month": 480,
         "notes": "",
-        "id": 1
+        "id": 1,
+        "production_line": "Linha principal"
       },
       {
         "tag": "EST-002",
         "name": "Esteira de montagem final",
-        "area": "Linha principal",
+        "area": "",
         "criticality": "A",
         "manufacturer": "",
         "model": "",
         "serial": "",
         "operating_hours_month": 480,
         "notes": "",
-        "id": 2
+        "id": 2,
+        "production_line": "Linha principal"
       },
       {
         "tag": "CMP-001",
@@ -36,7 +38,8 @@
         "serial": "",
         "operating_hours_month": 480,
         "notes": "",
-        "id": 3
+        "id": 3,
+        "production_line": ""
       },
       {
         "tag": "PRE-001",
@@ -48,7 +51,8 @@
         "serial": "",
         "operating_hours_month": 480,
         "notes": "",
-        "id": 4
+        "id": 4,
+        "production_line": ""
       },
       {
         "tag": "TST-001",
@@ -60,7 +64,8 @@
         "serial": "",
         "operating_hours_month": 480,
         "notes": "",
-        "id": 5
+        "id": 5,
+        "production_line": ""
       },
       {
         "tag": "PLT-001",
@@ -72,7 +77,8 @@
         "serial": "",
         "operating_hours_month": 480,
         "notes": "",
-        "id": 6
+        "id": 6,
+        "production_line": ""
       }
     ],
     "team": [

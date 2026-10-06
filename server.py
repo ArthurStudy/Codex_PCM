@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('PCM_DB', ROOT / 'data' / 'pcm.sqlite3'))
 TABLES = {
- 'assets': ['tag','name','area','criticality','manufacturer','model','serial','operating_hours_month','notes'],
+ 'assets': ['tag','name','production_line','area','criticality','manufacturer','model','serial','operating_hours_month','notes'],
  'team': ['name','specialty','hours_day','productivity_rate','days_week','shift','active'],
  'materials': ['code','name','unit','quantity','minimum','unit_cost','location'],
  'projects': ['name','start','end','owner','notes'],
@@ -23,7 +23,7 @@ TABLES = {
  'orders': ['title','asset_id','type','priority','status','shift','requested_date','due_date','scheduled_date','completed_date','assignee_id','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','failure','cause','action','description','checklist','blocker','project_id','plan_id'],
 }
 DEFAULTS = {
- 'assets': dict(tag='',name='',area='',criticality='B',manufacturer='',model='',serial='',operating_hours_month=0,notes=''),
+ 'assets': dict(tag='',name='',production_line='',area='',criticality='B',manufacturer='',model='',serial='',operating_hours_month=0,notes=''),
  'team': dict(name='',specialty='Mecânica',hours_day=8,productivity_rate=100,days_week=5,shift='1º turno',active=True),
  'materials': dict(code='',name='',unit='un',quantity=0,minimum=0,unit_cost=0,location=''),
  'projects': dict(name='',start='',end='',owner='',notes=''),
@@ -53,13 +53,20 @@ def connect():
     return db
 
 def all_rows(db, table):
-    return [dict(DEFAULTS[table], **json.loads(r['payload']), id=r['id']) for r in db.execute(f'SELECT * FROM {table} ORDER BY id')]
+    rows=[]
+    for r in db.execute(f'SELECT * FROM {table} ORDER BY id'):
+        data=json.loads(r['payload'])
+        if table=='assets' and not data.get('production_line') and data.get('area') and data.get('area') not in ['Utilidades','Embalagem'] and not data.get('area','').startswith('Célula'):
+            data['production_line']=data['area']
+            data['area']=''
+        rows.append(dict(DEFAULTS[table], **data, id=r['id']))
+    return rows
 
 def metrics(state, start, end, area='', shift=''):
     date.fromisoformat(start); date.fromisoformat(end)
     if start>end: raise ValueError('Período inválido.')
     assets={a['id']:a for a in state['assets']}
-    orders=[o for o in state['orders'] if (not area or assets.get(o['asset_id'],{}).get('area')==area) and (not shift or o.get('shift','1º turno')==shift)]
+    orders=[o for o in state['orders'] if (not area or (assets.get(o['asset_id'],{}).get('production_line') or assets.get(o['asset_id'],{}).get('area'))==area) and (not shift or o.get('shift','1º turno')==shift)]
     active=[o for o in orders if o['status'] not in ['Concluída','Cancelada']]
     completed=[o for o in orders if o['status']=='Concluída' and start<=o['completed_date']<=end]
     planned=[o for o in orders if o['status']!='Cancelada' and o['scheduled_date'] and start<=o['scheduled_date']<=min(end,date.today().isoformat())]
@@ -96,8 +103,8 @@ def initialize():
         db.execute("INSERT INTO meta VALUES ('demo','1')")
         today = date.today()
         ds = lambda offset: (today+timedelta(days=offset)).isoformat()
-        for tag,name,area,crit in [('MON-001','Estação de montagem do cesto','Linha principal','A'),('EST-002','Esteira de montagem final','Linha principal','A'),('CMP-001','Compressor de ar','Utilidades','A'),('PRE-001','Prensa de gabinetes','Célula de gabinetes','A'),('TST-001','Bancada de estanqueidade','Célula de testes','A'),('PLT-001','Paletizador de lavadoras','Embalagem','B')]:
-            insert(db,'assets',dict(DEFAULTS['assets'],tag=tag,name=name,area=area,criticality=crit,operating_hours_month=480))
+        for tag,name,line,area,crit in [('MON-001','Estação de montagem do cesto','Linha principal','','A'),('EST-002','Esteira de montagem final','Linha principal','','A'),('CMP-001','Compressor de ar','','Utilidades','A'),('PRE-001','Prensa de gabinetes','','Célula de gabinetes','A'),('TST-001','Bancada de estanqueidade','','Célula de testes','A'),('PLT-001','Paletizador de lavadoras','','Embalagem','B')]:
+            insert(db,'assets',dict(DEFAULTS['assets'],tag=tag,name=name,production_line=line,area=area,criticality=crit,operating_hours_month=480))
         for name,spec,shift in [('Carlos Mendes','Mecânica','1º turno'),('Ana Oliveira','Elétrica','2º turno'),('Rafael Santos','Instrumentação','3º turno'),('Juliana Costa','Mecânica','1º turno')]:
             insert(db,'team',dict(DEFAULTS['team'],name=name,specialty=spec,shift=shift))
         for code,name,qty,mn,cost in [('ROL-6205','Rolamento 6205',4,6,85),('COR-A42','Correia A42',12,4,46),('SEN-M18','Sensor indutivo M18',2,3,180),('LUB-EP2','Graxa industrial EP2',18,5,42)]:
@@ -115,11 +122,12 @@ def validate(db, table, incoming):
     data=dict(DEFAULTS[table])
     for key in TABLES[table]:
         if key in incoming: data[key]=incoming[key]
-    required={'assets':['tag','name','area'],'team':['name'],'materials':['code','name'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
+    required={'assets':['tag','name'],'team':['name'],'materials':['code','name'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
     for key in required[table]:
         if not str(data[key]).strip(): raise ValueError(f'Preencha o campo {key}.')
     for key,value in data.items():
         if key in ['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']:
+            if isinstance(value, bool): raise ValueError(f'Número inválido: {key}.')
             try: data[key]=float(value)
             except (ValueError,TypeError): raise ValueError(f'Número inválido: {key}.')
             if not 0 <= data[key] <= 100000000: raise ValueError(f'Valor fora do limite: {key}.')
@@ -137,6 +145,11 @@ def validate(db, table, incoming):
             raise ValueError(f'Texto inválido: {key}.')
     if table in ['orders','plans'] and data['type'] not in TYPES: raise ValueError('Tipo inválido.')
     if table=='assets' and data['criticality'] not in ['A','B','C']: raise ValueError('Criticidade inválida.')
+    if table=='assets':
+        data['production_line']=data['production_line'].strip()
+        known={str(row.get('production_line') or '').strip().casefold():row.get('production_line') for row in all_rows(db,'assets') if row.get('production_line')}
+        data['production_line']=known.get(data['production_line'].casefold(),data['production_line'])
+        if data['production_line'] and data['area']: raise ValueError('Selecione uma linha de produção ou uma área legada, não ambas.')
     if table=='team' and (isinstance(incoming.get('productivity_rate'),bool) or data['productivity_rate']>100): raise ValueError('Taxa de produtividade deve ser entre 0 e 100%.')
     if table=='team' and data['hours_day']>24: raise ValueError('Capacidade diária deve ser até 24 h.')
     if table=='team' and not 1<=data['days_week']<=7: raise ValueError('Dias de trabalho por semana devem ser entre 1 e 7.')
@@ -189,7 +202,7 @@ class Handler(BaseHTTPRequestHandler):
                 state['audit']=[dict(r) for r in db.execute('SELECT * FROM audit ORDER BY id')]
             return self.send_json(dict(format='pcm-backup-v1',exported_at=datetime.now().isoformat(),data=state))
         path=self.path.split('?')[0]
-        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/style.css':'style.css'}
+        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/orders-import.js':'orders-import.js','/style.css':'style.css'}
         if path not in allowed: return self.send_json({'error':'Não encontrado'},404)
         file=ROOT/'public'/allowed[path]
         raw=file.read_bytes(); self.send_response(200); self.send_header('Content-Type',mimetypes.guess_type(file)[0]+'; charset=utf-8'); self.send_header('Content-Length',str(len(raw))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(raw)
@@ -246,6 +259,16 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,'OS gerada pelo plano','orders',rid)
                     db.commit()
                     return self.send_json({'id':rid})
+                if parts==['api','orders','import'] and method=='POST':
+                    orders=incoming.get('orders')
+                    if not isinstance(orders,list) or not 1<=len(orders)<=500: raise ValueError('Envie de 1 a 500 ordens para importar.')
+                    ids=[]
+                    for index,row in enumerate(orders):
+                        try: ids.append(insert(db,'orders',validate(db,'orders',row)))
+                        except ValueError as error: raise ValueError(f'Linha {index+2}: {error}')
+                    for rid in ids: audit(db,'Importação de OS','orders',rid)
+                    db.commit()
+                    return self.send_json({'ok':True,'count':len(ids),'ids':ids})
                 if len(parts) not in [2,3] or parts[0]!='api' or parts[1] not in TABLES: return self.send_json({'error':'Rota inválida'},404)
                 table=parts[1]; rid=int(parts[2]) if len(parts)==3 else None
                 if method in ['PUT','DELETE'] and (not rid or not db.execute(f'SELECT id FROM {table} WHERE id=?',(rid,)).fetchone()): return self.send_json({'error':'Registro não encontrado.'},404)

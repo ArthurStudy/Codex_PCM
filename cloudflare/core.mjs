@@ -12,7 +12,7 @@ const names = Object.keys(tables);
 const numeric = new Set(['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']);
 const dates = new Set(['start','end','next_date','requested_date','due_date','scheduled_date','completed_date']);
 const foreign = { asset_id:'assets', assignee_id:'team', project_id:'projects', plan_id:'plans' };
-const required = { assets:['tag','name','area'],team:['name'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
+const required = { assets:['tag','name'],team:['name'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
 const sum = (rows, key) => rows.reduce((n, r) => n + r[key], 0);
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit' }).format(new Date());
 export function validDate(value) {
@@ -79,6 +79,12 @@ export class PCMDatabase {
     }
     if (['orders','plans'].includes(table) && !types.includes(data.type)) fail('Tipo inválido.');
     if (table === 'assets' && !['A','B','C'].includes(data.criticality)) fail('Criticidade inválida.');
+    if (table === 'assets') {
+      data.production_line = data.production_line.trim();
+      const known = this.all('assets').find(asset => asset.production_line?.trim().toLocaleLowerCase() === data.production_line.toLocaleLowerCase());
+      if (known) data.production_line = known.production_line;
+      if (data.production_line && data.area) fail('Selecione uma linha de produção ou uma área legada, não ambas.');
+    }
     if (table === 'team' && data.productivity_rate > 100) fail('Taxa de produtividade deve ser entre 0 e 100%.');
     if (table === 'team' && data.hours_day > 24) fail('Capacidade diária deve ser até 24 h.');
     if (table === 'team' && (data.days_week < 1 || data.days_week > 7)) fail('Dias de trabalho por semana devem ser entre 1 e 7.');
@@ -114,7 +120,7 @@ export class PCMDatabase {
     if (!validDate(start) || !validDate(end) || start > end) fail('Informe um período válido.');
     const state = this.state();
     const assets = new Map(state.assets.map(a => [a.id, a]));
-    const orders = state.orders.filter(o => (!area || assets.get(o.asset_id)?.area === area) && (!shift || o.shift === shift));
+    const orders = state.orders.filter(o => (!area || (assets.get(o.asset_id)?.production_line || assets.get(o.asset_id)?.area) === area) && (!shift || o.shift === shift));
     const active = orders.filter(o => !['Concluída','Cancelada'].includes(o.status));
     const completed = orders.filter(o => o.status === 'Concluída' && start <= o.completed_date && o.completed_date <= end);
     const limit = end < this.clock() ? end : this.clock();
@@ -187,6 +193,15 @@ export class PCMDatabase {
       this.sql.exec('UPDATE plans SET payload=? WHERE id=?', JSON.stringify(plan), planId);
       this.audit('OS gerada pelo plano','orders',id);
       return { id };
+    }
+    if (path === '/api/orders/import' && method === 'POST') {
+      if (!Array.isArray(incoming.orders) || !incoming.orders.length || incoming.orders.length > 500) fail('Envie de 1 a 500 ordens para importar.');
+      const ids = incoming.orders.map((row,index) => {
+        try { return this.insert('orders', this.validate('orders', row)); }
+        catch (error) { fail(`Linha ${index + 2}: ${error.message}`); }
+      });
+      ids.forEach(id => this.audit('Importação de OS','orders',id));
+      return { ok:true, count:ids.length, ids };
     }
     const match = path.match(/^\/api\/([a-z]+)(?:\/(\d+))?$/);
     if (!match || !Object.hasOwn(tables, match[1])) fail('Rota inválida.',404);

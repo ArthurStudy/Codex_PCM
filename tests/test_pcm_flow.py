@@ -202,17 +202,31 @@ class PCMFlowTests(unittest.TestCase):
         query = urlencode(dict(start=self.yesterday, end=self.today, shift='2º turno'))
         self.assertEqual(self.call('GET', '/api/metrics?' + query)['weekly_capacity'], 10)
 
-    def test_invalid_productivity_is_rejected_atomically(self):
+    def test_invalid_productivity_and_boolean_numbers_are_rejected_atomically(self):
         before = self.state()
         person = before['team'][0]
         for rate in [-1, 100.01, None, True, [], {}, '', 'abc', float('inf')]:
             with self.subTest(rate=rate):
                 self.call('PUT', '/api/team/' + str(self.tech), dict(person, productivity_rate=rate), expected=400)
                 self.assertEqual(self.state(), before)
+        for field in ('hours_day', 'days_week', 'productivity_rate'):
+            with self.subTest(field=field):
+                invalid = self.call('PUT', '/api/team/' + str(self.tech), dict(person, **{field: True}), expected=400)
+                self.assertIn('Número inválido', invalid['error'])
+                self.assertEqual(self.state(), before)
+        rid = self.create('orders', dict(title='Validação numérica', asset_id=self.asset, requested_date=self.today))
+        order = self.order(rid)
+        for value in (True, False):
+            with self.subTest(estimated_hours=value):
+                invalid = self.call('PUT', '/api/orders/' + str(rid), dict(order, estimated_hours=value), expected=400)
+                self.assertIn('Número inválido', invalid['error'])
+                self.assertEqual(self.order(rid)['estimated_hours'], 2)
+        before_restore = self.state()
         backup = self.call('GET', '/api/backup')
-        backup['data']['team'][0]['productivity_rate'] = 101
-        self.call('POST', '/api/restore', backup, expected=400)
-        self.assertEqual(self.state(), before)
+        backup['data']['orders'][0]['estimated_hours'] = True
+        invalid = self.call('POST', '/api/restore', backup, expected=400)
+        self.assertIn('Número inválido', invalid['error'])
+        self.assertEqual(self.state(), before_restore)
 
     def test_completion_date_and_terminal_transition_are_guarded(self):
         rid = self.new_order()
