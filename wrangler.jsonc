@@ -5,7 +5,7 @@
   "account_id": "b6729892824bd2bfe8fff7fc75b7b41d",
   "compatibility_date": "2026-10-04",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": false,
+  "workers_dev": true,
   "preview_urls": false,
   "rules": [{ "type": "Text", "globs": ["**/public/*.html", "**/public/*.css", "**/public/*.js"], "fallthrough": true }],
   "durable_objects": {
@@ -19,3 +19,4 @@
   },
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }
+
