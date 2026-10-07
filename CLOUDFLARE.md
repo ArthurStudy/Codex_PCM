@@ -1,10 +1,8 @@
 # Publicação no Cloudflare
 
-## Estado da preparação
+## Estado da implantação
 
-A aplicação está adaptada e testada para Cloudflare Workers. A publicação ainda não foi concluída: o conector consegue consultar a conta, mas a tentativa de enviar `codex-pcm` foi recusada com `No access to the specified resource`. A criação do provedor de código por e-mail também foi recusada. É necessário concluir a autorização de escrita da conexão Cloudflare.
-
-O Zero Trust já foi ativado. Ainda faltam a aplicação e a política do Access, o provedor de código por e-mail, o endereço workers.dev e a publicação do Worker. Até isso ser concluído, `workers_dev` e `preview_urls` permanecem desativados. O código bloqueia todas as requisições sem uma identidade verificada, mesmo se uma rota for ativada por engano.
+O Worker `codex-pcm` usa [codex-pcm.arthur-study95.workers.dev](https://codex-pcm.arthur-study95.workers.dev/) com Cloudflare Access por código de e-mail. O endereço `workers.dev` está habilitado e os links de preview estão desativados. Antes de cada atualização, confirme a política privada do Access, o segredo `ALLOWED_EMAIL` e o redirecionamento de uma sessão sem autenticação. O Worker também verifica a identidade e bloqueia requisições sem e-mail autorizado.
 
 ## Arquitetura
 
@@ -36,21 +34,13 @@ python -m unittest discover -s tests -v
 
 O Worker exige autenticação também durante `pnpm dev`; não há atalho de desenvolvimento que possa ser publicado e liberar o acesso. Use os testes de runtime para validar a integração localmente.
 
-## Concluir a publicação privada
+## Atualizar a publicação privada
 
-1. Autorizar a conexão a editar Workers e os recursos necessários de Cloudflare Access na conta do proprietário, ou autenticar o Wrangler com `pnpm exec wrangler login` para publicar e concluir o Access pelo painel.
-2. Abrir Workers & Pages para criar o subdomínio workers.dev da conta, se ainda não existir.
-3. Configurar um provedor **One-time PIN** no Zero Trust.
-4. Criar uma aplicação Access para o hostname exato de `codex-pcm`, com uma única política Allow para o e-mail indicado pelo proprietário. Selecionar apenas o provedor de código por e-mail.
-5. Copiar o **Application Audience (AUD)** da aplicação para `ACCESS_AUD` em `wrangler.jsonc`. Confirmar que `ACCESS_TEAM_DOMAIN` corresponde ao domínio da organização Zero Trust.
-6. Gravar o e-mail permitido como segredo, sem publicá-lo no GitHub:
-
-   ```sh
-   pnpm exec wrangler secret put ALLOWED_EMAIL
-   ```
-
-7. Publicar o Worker. Quando a política de acesso estiver configurada e os testes passarem, habilitar `workers_dev` no arquivo de configuração e publicar novamente. Manter `preview_urls: false`.
-8. Validar o endereço sem autenticação (deve exigir login), com o proprietário autorizado e com um e-mail não autorizado. Conferir criação de OS, persistência, backup e restauração no ambiente apropriado, sem apagar dados existentes.
+1. Validar testes e build local. Conferir que `WORKSPACE_ID`, a classe `PCMWorkspace` e a migração `v1` não mudaram; essas identidades selecionam os dados persistentes.
+2. Conferir no Cloudflare Access a aplicação para o hostname exato, a política Allow limitada ao e-mail do proprietário e o provedor **One-time PIN**. O e-mail permitido permanece somente na configuração privada.
+3. Conferir que o segredo `ALLOWED_EMAIL` existe e que `ACCESS_AUD` e `ACCESS_TEAM_DOMAIN` correspondem à aplicação. Não incluir segredos em logs ou Git.
+4. Publicar com `pnpm exec wrangler deploy` a partir da revisão sincronizada e validada. Manter `workers_dev: true` e `preview_urls: false`.
+5. Conferir a versão implantada, redirecionamento sem autenticação, leitura autenticada e persistência. Testar escritas apenas em ambiente isolado ou com registros descartáveis autorizados, sem alterar registros de negócio.
 
 O segredo de e-mail também é conferido dentro do Worker. Uma política Access mais ampla, por engano, não libera outros usuários no aplicativo.
 

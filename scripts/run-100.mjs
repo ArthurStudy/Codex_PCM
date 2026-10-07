@@ -22,7 +22,7 @@ run('Build local Cloudflare',process.execPath,[wrangler,'deploy','--dry-run','--
 const nodeCount = run('Testes Node e runtime Cloudflare',process.execPath,[
   '--test','--test-reporter=tap',
   'tests/worker.test.mjs','tests/capacity.test.mjs','tests/excel-export.test.mjs',
-  'tests/pcm-acceptance-100.test.mjs','tests/cloudflare-runtime.test.mjs'
+  'tests/pcm-acceptance-100.test.mjs','tests/kpi-dashboard.test.mjs','tests/cloudflare-runtime.test.mjs'
 ],output => Number(/^1\.\.(\d+)$/m.exec(output)?.[1]));
 
 const pythonCandidates = process.env.PYTHON ? [[process.env.PYTHON,[]]] : process.platform === 'win32'
@@ -45,5 +45,5 @@ try {
 if (!Number.isInteger(pythonCount)) throw pythonError || new Error('Python 3 não encontrado. Instale Python 3 ou defina a variável PYTHON.');
 
 const total = nodeCount + pythonCount;
-process.stdout.write(`\nTotal contabilizado: ${nodeCount} Node + ${pythonCount} Python = ${total}/100.\n`);
-if (total !== 100) throw new Error(`A suíte deveria contabilizar exatamente 100 testes; encontrou ${total}.`);
+process.stdout.write(`\nTotal contabilizado: ${nodeCount} Node + ${pythonCount} Python = ${total}/${total} aprovados (100%).\n`);
+if (total < 100) throw new Error(`A suíte deveria cobrir pelo menos 100 testes; encontrou ${total}.`);

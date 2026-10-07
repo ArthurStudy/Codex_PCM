@@ -49,3 +49,11 @@ Comando reproduzível: `pnpm run test:100`. Resultado nesta revisão: compilaç�
 Achado da revisão independente, já corrigido: a API local agora rejeita booleanos em campos numéricos, alinhando as validações local e Cloudflare. O teste Python existente foi ampliado para cobrir horas, produtividade e rollback de backup; o número de casos permanece em **100/100 aprovados**.
 
 Limites: os 6 cenários de XLSX usam o importador e exportador reais em um contexto de navegador simulado; não foi feita uma inspeção visual do painel em navegador real com resoluções desktop/celular, nem foi testado um login por e-mail no Cloudflare Access de produção. O login do Worker foi simulado localmente com chaves e JWT descartáveis. O servidor local está disponível em `http://127.0.0.1:8765/` para a validação manual do proprietário. GitHub e Cloudflare remoto aguardam essa validação manual.
+
+## Consolidação e indicadores — 07/10/2026
+
+O checkout do GitHub recebeu as correções locais de tipos de manutenção, importação e exportação Excel, além dos filtros de planos e do painel de indicadores. O painel tem fórmulas documentadas em [INDICADORES.md](INDICADORES.md) e seis testes de cálculo com casos sem dados, cancelamento, filtros, comparação de períodos, paradas e imutabilidade.
+
+`pnpm run test:100` concluiu o build Cloudflare em dry-run e aprovou **96/96 testes Node**, incluindo runtime local Cloudflare e painel, e **11/11 testes Python** com SQLite temporário: **107/107 aprovados (100%)**. O runner exige pelo menos 100 cenários e falha em qualquer erro de build ou teste. Nenhum teste usa a base em `data/` ou grava na produção.
+
+Antes da implantação, a API Cloudflare confirmou a aplicação Access, política Allow restrita ao proprietário, provedor One-time PIN e segredo `ALLOWED_EMAIL`. Uma requisição sem sessão ao endereço do Worker retornou HTTP 302 para o login Access. A verificação de leitura autenticada e persistência em produção deve ser registrada após a implantação.

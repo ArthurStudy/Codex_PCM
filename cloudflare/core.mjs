@@ -105,7 +105,7 @@ export class PCMDatabase {
         if (!data.completed_date || !data.action.trim()) fail('Informe a data de conclusão e o serviço realizado.');
         if (data.actual_hours <= 0) fail('Informe as horas reais de execução, maiores que zero.');
         if (data.completed_date > this.clock()) fail('A conclusão não pode ter data futura.');
-        if (data.type === 'Corretiva' && (!data.failure.trim() || !data.cause.trim())) fail('Registre a falha e a causa da corretiva. Use "Em análise" se a causa ainda não foi confirmada.');
+      if (['Corretiva','Corretiva emergencial'].includes(data.type) && (!data.failure.trim() || !data.cause.trim())) fail('Registre a falha e a causa da corretiva emergencial. Use "Em análise" se a causa ainda não foi confirmada.');
       } else if (data.completed_date) fail('A data de conclusão é exclusiva de OS concluída.');
       if (data.status === 'Cancelada' && !data.action.trim()) fail('Informe o motivo do cancelamento no serviço realizado / justificativa.');
       if (data.status === 'Aguardando material' && !data.blocker.trim()) fail('Descreva o material ou impedimento pendente.');
@@ -126,14 +126,14 @@ export class PCMDatabase {
     const limit = end < this.clock() ? end : this.clock();
     const planned = orders.filter(o => o.status !== 'Cancelada' && o.scheduled_date && start <= o.scheduled_date && o.scheduled_date <= limit);
     const onTime = planned.filter(o => o.status === 'Concluída' && o.completed_date <= o.scheduled_date);
-    const failures = completed.filter(o => o.type === 'Corretiva' && o.downtime_hours > 0);
+      const failures = completed.filter(o => ['Corretiva','Corretiva emergencial'].includes(o.type) && o.downtime_hours > 0);
     const hours = sum(active, 'estimated_hours');
     const weekly = state.team.filter(t => t.active && (!shift || t.shift === shift)).reduce((n,t) => n + t.hours_day * t.days_week * (t.productivity_rate ?? 100) / 100, 0);
     return { backlog_count:active.length,backlog_hours:hours,backlog_weeks:weekly ? hours / weekly : null,weekly_capacity:weekly,
       completed:completed.length,completed_hours:sum(completed,'actual_hours'),cost:completed.reduce((n,o) => n + o.actual_hours * o.labor_rate + o.material_cost,0),
       planned:planned.length,on_time:onTime.length,adherence:planned.length ? 100 * onTime.length / planned.length : null,
       failures:failures.length,downtime:sum(failures,'downtime_hours'),mttr:failures.length ? sum(failures,'downtime_hours') / failures.length : null,
-      preventive_share:completed.length ? 100 * completed.filter(o => ['Preventiva','Preditiva','Inspeção'].includes(o.type)).length / completed.length : null,
+      preventive_share:completed.length ? 100 * completed.filter(o => ['Preventiva','Corretiva planejada','Preditiva','Inspeção'].includes(o.type)).length / completed.length : null,
       overdue:active.filter(o => o.due_date && o.due_date < this.clock()).length,by_type:Object.fromEntries(types.map(t => [t, completed.filter(o => o.type === t).length])) };
   }
   handle(method, route, incoming = {}) {

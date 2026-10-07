@@ -7,8 +7,8 @@ const context = vm.createContext({TextEncoder});
 vm.runInContext(readFileSync(new URL('../public/excel-export.js', import.meta.url), 'utf8'), context);
 const headers = ['OS','Atividade','Ativo','Área','Tipo','Prioridade','Situação','Turno','Solicitação','Programação','Conclusão','HH previstos','HH reais','Custo realizado'];
 const order = ['OS-00001','Inspeção & revisão <motor>','00123','Produção','Preventiva','P2','Concluída','1º turno','2026-10-04','2026-10-05','',2.5,0,120.25];
-function entries(rows) {
-  const bytes = Buffer.from(context.PCMExcel.build(rows)), files = {};
+function entries(rows, options) {
+  const bytes = Buffer.from(context.PCMExcel.build(rows, options)), files = {};
   let offset = 0;
   while (bytes.readUInt32LE(offset) === 0x04034b50) {
     assert.equal(bytes.readUInt16LE(offset + 8), 0);
@@ -66,4 +66,18 @@ test('worksheet has navigation and readable formatting, including no-result expo
   assert.match(styles, /<b\/>/);
   assert.match(entries([headers])['xl/worksheets/sheet1.xml'], /autoFilter ref="A1:N1"/);
   assert.throws(() => context.PCMExcel.build([]), /Quantidade/);
+});
+
+test('template includes standard master-data dropdowns and input prompts on the import sheet', () => {
+  const files = entries([['Atividade*','Ativo (tag)*','Tipo','Prioridade','Data solicitação*','Prazo','HH estimados*','Turno','Responsável (nome)','Descrição','Roteiro','Material / impedimento']], {validations:{1:['MON-001','EST-002'],2:['Preventiva','Corretiva'],3:['P1','P3'],7:['1º turno','2º turno'],8:['Carlos Mendes','Ana Oliveira']}});
+  assert.match(files['xl/workbook.xml'], /name="Listas"[^>]*state="hidden"/);
+  assert.match(files['xl/worksheets/sheet1.xml'], /type="list"[^>]*sqref="B2:B1000"/);
+  assert.match(files['xl/worksheets/sheet1.xml'], /formula1>Listas!\$A\$2:\$A\$3/);
+  assert.match(files['xl/worksheets/sheet1.xml'], /sqref="I2:I1000"/);
+  assert.match(files['xl/worksheets/sheet2.xml'], /MON-001/);
+  assert.match(files['xl/worksheets/sheet2.xml'], /Carlos Mendes/);
+  assert.match(files['xl/worksheets/sheet1.xml'], /promptTitle="Como preencher"/);
+  assert.match(files['xl/worksheets/sheet1.xml'], /prompt="Escolha uma opção da lista suspensa\."/);
+  assert.doesNotMatch(files['xl/worksheets/sheet1.xml'], /legacyDrawing|VLOOKUP|Turno incompatível/);
+  assert.equal(files['xl/comments1.xml'], undefined);
 });

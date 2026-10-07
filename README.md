@@ -2,7 +2,7 @@
 
 Aplicação individual para planejamento e controle de manutenção de uma fábrica de lavadoras, organizada por linhas de produção, máquinas e três turnos. Interface em português. Python e SQLite, sem dependências externas ou conexão com internet.
 
-Além da versão local abaixo, o projeto inclui uma versão para **Cloudflare Workers**, com banco SQLite persistente e acesso privado por Cloudflare Access. A preparação, os testes e as etapas pendentes de publicação estão em [CLOUDFLARE.md](CLOUDFLARE.md). A versão online ainda depende da conclusão das permissões e da configuração de hospedagem.
+Além da versão local abaixo, o projeto inclui uma versão para **Cloudflare Workers**, com banco SQLite persistente e acesso privado por Cloudflare Access. O endereço é [codex-pcm.arthur-study95.workers.dev](https://codex-pcm.arthur-study95.workers.dev/). A arquitetura e os cuidados de atualização estão em [CLOUDFLARE.md](CLOUDFLARE.md).
 
 ## Abrir
 
@@ -32,7 +32,7 @@ Salve alterações antes de avançar a etapa. Datas futuras de solicitação e c
 - Backlog: colunas por etapa, prioridade, carga HH e idade da carteira.
 - Planos: periodicidade em dias, roteiros e geração manual de OS por ocorrência, com prevenção de geração duplicada. O prazo da ocorrência é preservado mesmo quando vencido.
 - Cronogramas: janelas de parada, OS vinculadas e gráfico por data programada.
-- Indicadores: conclusões, aderência, MTTR registrado, custo, composição, HH, backlog e capacidade.
+- Indicadores: seis cartões de entrega, aderência, carteira, custo, paradas e cobertura de HH; tendência, composição, esforço, prioridades, Pareto e acesso às OS de origem. Consulte [INDICADORES.md](INDICADORES.md) para fórmulas e limites.
 - Falhas: histórico de corretivas concluídas, falha, causa, ação e tempo de parada.
 - Ativos, equipe e materiais: cadastro e edição; exclusões bloqueadas quando existem vínculos.
 - Dados e histórico: backup JSON, restauração transacional e últimas alterações.
@@ -57,7 +57,7 @@ Salve alterações antes de avançar a etapa. Datas futuras de solicitação e c
 
 `python -m unittest discover -s tests -v`
 
-Para uma validação integrada, execute `npm run test:100`. O comando recompila a versão Cloudflare em modo dry-run e roda 100 testes locais: 62 cenários adicionais de aceitação, os testes JavaScript existentes, a integração Miniflare e os testes Python via HTTP com SQLite temporário. Não publica no GitHub ou Cloudflare e não usa o banco local em `data/`. Requer dependências instaladas, Node.js e Python 3.
+Para uma validação integrada, execute `pnpm run test:100`. O comando recompila a versão Cloudflare em modo dry-run e roda pelo menos 100 testes locais, inclusive o dashboard, aceitação, integração Miniflare e testes Python via HTTP com SQLite temporário. O relatório mostra o total real. Não publica no GitHub ou Cloudflare e não usa o banco local em `data/`. Requer dependências instaladas, Node.js e Python 3.
 
 Os testes usam bancos em memória/temporários e um servidor isolado. Não modificam os registros do usuário. Consulte `RELATORIO_TESTES.md` para os cenários e resultados da revisão independente.
 

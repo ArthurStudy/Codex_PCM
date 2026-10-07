@@ -163,6 +163,8 @@
   "types": [
     "Preventiva",
     "Corretiva",
+    "Corretiva emergencial",
+    "Corretiva planejada",
     "Preditiva",
     "Inspeção",
     "Melhoria"

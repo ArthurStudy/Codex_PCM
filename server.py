@@ -31,7 +31,7 @@ DEFAULTS = {
  'orders': dict(title='',asset_id='',type='Preventiva',priority='P3',status='Aberta',shift='1º turno',requested_date='',due_date='',scheduled_date='',completed_date='',assignee_id='',estimated_hours=2,actual_hours=0,labor_rate=0,material_cost=0,downtime_hours=0,failure='',cause='',action='',description='',checklist='',blocker='',project_id='',plan_id=''),
 }
 STATUSES = ['Aberta','Em planejamento','Aguardando material','Programada','Em execução','Concluída','Cancelada']
-TYPES = ['Preventiva','Corretiva','Preditiva','Inspeção','Melhoria']
+TYPES = ['Preventiva','Corretiva','Corretiva emergencial','Corretiva planejada','Preditiva','Inspeção','Melhoria']
 SHIFTS = ['1º turno','2º turno','3º turno']
 class ClosingConnection(sqlite3.Connection):
     def __exit__(self, *args):
@@ -71,7 +71,7 @@ def metrics(state, start, end, area='', shift=''):
     completed=[o for o in orders if o['status']=='Concluída' and start<=o['completed_date']<=end]
     planned=[o for o in orders if o['status']!='Cancelada' and o['scheduled_date'] and start<=o['scheduled_date']<=min(end,date.today().isoformat())]
     on_time=[o for o in planned if o['status']=='Concluída' and o['completed_date']<=o['scheduled_date']]
-    failures=[o for o in completed if o['type']=='Corretiva' and o['downtime_hours']>0]
+    failures=[o for o in completed if o['type'] in ['Corretiva','Corretiva emergencial'] and o['downtime_hours']>0]
     hours=sum(o['estimated_hours'] for o in active)
     weekly=sum(t['hours_day']*t.get('days_week',5)*t.get('productivity_rate',100)/100 for t in state['team'] if t['active'] and (not shift or t.get('shift','1º turno')==shift))
     return dict(backlog_count=len(active), backlog_hours=hours, backlog_weeks=hours/weekly if weekly else None,
@@ -80,7 +80,7 @@ def metrics(state, start, end, area='', shift=''):
         planned=len(planned),on_time=len(on_time),adherence=100*len(on_time)/len(planned) if planned else None,
         failures=len(failures),downtime=sum(o['downtime_hours'] for o in failures),
         mttr=sum(o['downtime_hours'] for o in failures)/len(failures) if failures else None,
-        preventive_share=100*sum(o['type'] in ['Preventiva','Preditiva','Inspeção'] for o in completed)/len(completed) if completed else None,
+        preventive_share=100*sum(o['type'] in ['Preventiva','Corretiva planejada','Preditiva','Inspeção'] for o in completed)/len(completed) if completed else None,
         overdue=sum(bool(o.get('due_date') and o['due_date']<date.today().isoformat()) for o in active),
         by_type={kind:sum(o['type']==kind for o in completed) for kind in TYPES})
 
@@ -169,7 +169,7 @@ def validate(db, table, incoming):
         if data['status']=='Concluída':
             if data['actual_hours']<=0: raise ValueError('Informe as horas reais de execução, maiores que zero.')
             if data['completed_date']>date.today().isoformat(): raise ValueError('A conclusão não pode ter data futura.')
-            if data['type']=='Corretiva' and (not data['failure'].strip() or not data['cause'].strip()): raise ValueError('Registre a falha e a causa da corretiva. Use "Em análise" se a causa ainda não foi confirmada.')
+            if data['type'] in ['Corretiva','Corretiva emergencial'] and (not data['failure'].strip() or not data['cause'].strip()): raise ValueError('Registre a falha e a causa da corretiva emergencial. Use "Em análise" se a causa ainda não foi confirmada.')
         elif data['completed_date']: raise ValueError('A data de conclusão é exclusiva de OS concluída.')
         if data['status']=='Cancelada' and not data['action'].strip(): raise ValueError('Informe o motivo do cancelamento no serviço realizado / justificativa.')
         if data['status']=='Aguardando material' and not data['blocker'].strip(): raise ValueError('Descreva o material ou impedimento pendente.')
