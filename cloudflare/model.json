@@ -22,15 +22,18 @@
       "productivity_rate": 100
     },
     "trainings": {
+      "training_code": "",
       "title": "",
-      "date": "",
-      "start_time": "",
-      "end_time": "",
+      "request_date": "",
+      "start_date": "",
+      "end_date": "",
       "instructor": "",
       "location": "",
       "modality": "Presencial",
       "status": "Planejado",
       "workload": 1,
+      "planned_cost": 0,
+      "actual_cost": 0,
       "participants": "",
       "validity_days": 365,
       "notes": ""
@@ -112,15 +115,18 @@
       "productivity_rate"
     ],
     "trainings": [
+      "training_code",
       "title",
-      "date",
-      "start_time",
-      "end_time",
+      "request_date",
+      "start_date",
+      "end_date",
       "instructor",
       "location",
       "modality",
       "status",
       "workload",
+      "planned_cost",
+      "actual_cost",
       "participants",
       "validity_days",
       "notes"

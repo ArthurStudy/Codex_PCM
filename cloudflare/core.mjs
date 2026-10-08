@@ -9,10 +9,10 @@ export class InputError extends Error {
 const fail = (message, status) => { throw new InputError(message, status); };
 const { defaults, tables, statuses, types, shifts, transitions } = model;
 const names = Object.keys(tables);
-const numeric = new Set(['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days','workload','validity_days']);
-const dates = new Set(['start','end','next_date','requested_date','due_date','scheduled_date','completed_date','date']);
+const numeric = new Set(['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days','workload','validity_days','planned_cost','actual_cost']);
+const dates = new Set(['start','end','next_date','requested_date','due_date','scheduled_date','completed_date','request_date','start_date','end_date']);
 const foreign = { asset_id:'assets', assignee_id:'team', project_id:'projects', plan_id:'plans' };
-const required = { assets:['tag','name'],team:['name'],trainings:['title','date'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
+const required = { assets:['tag','name'],team:['name'],trainings:['training_code','title','request_date','start_date','end_date'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
 const sum = (rows, key) => rows.reduce((n, r) => n + r[key], 0);
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit' }).format(new Date());
 export function validDate(value) {
@@ -45,7 +45,7 @@ export class PCMDatabase {
       this.sql.exec("INSERT INTO meta VALUES ('initialized','1'),('demo','1')");
     });
   }
-  all(table) { return this.rows(`SELECT * FROM ${table} ORDER BY id`).map(r => ({ ...defaults[table], ...JSON.parse(r.payload), id:r.id })); }
+  all(table) { return this.rows(`SELECT * FROM ${table} ORDER BY id`).map(r => { const saved=JSON.parse(r.payload); if(table==='trainings'){saved.start_date ||= saved.date || ''; saved.end_date ||= saved.date || saved.start_date; saved.request_date ||= saved.start_date; saved.training_code ||= `TR-${String(r.id).padStart(4,'0')}`;} return { ...defaults[table], ...saved, id:r.id }; }); }
   get(table, id) { const row = this.one(`SELECT payload FROM ${table} WHERE id=?`, id); return row ? JSON.parse(row.payload) : null; }
   insert(table, data) { return this.one(`INSERT INTO ${table}(payload) VALUES (?) RETURNING id`, JSON.stringify(data)).id; }
   audit(event, entity, id) { this.sql.exec('INSERT INTO audit(time,event,entity,record_id) VALUES (?,?,?,?)', new Date().toISOString(), event, entity, id); }
@@ -92,7 +92,8 @@ export class PCMDatabase {
       if (!['Planejado','Realizado','Cancelado'].includes(data.status)) fail('Status de treinamento inválido.');
       if (!['Presencial','Online','Híbrido'].includes(data.modality)) fail('Modalidade inválida.');
       if (data.workload <= 0 || data.validity_days < 0) fail('Carga horária e validade devem ser válidas.');
-      if (data.start_time && data.end_time && data.end_time <= data.start_time) fail('Horário final deve ser posterior ao inicial.');
+      if (data.request_date > data.start_date) fail('A solicitação ao RH não pode ser posterior ao início do treinamento.');
+      if (data.end_date < data.start_date) fail('Data de fim deve ser igual ou posterior à data de início.');
     }
     if (['team','orders'].includes(table) && !shifts.includes(data.shift)) fail('Selecione um dos três turnos.');
     if (table === 'plans' && (!Number.isInteger(data.interval_days) || data.interval_days < 1)) fail('Periodicidade deve ser um número inteiro de dias, maior que zero.');
@@ -232,7 +233,7 @@ export class PCMDatabase {
           event = `${previous.status} → ${data.status}`;
         }
       }
-      const unique = table === 'assets' ? 'tag' : table === 'materials' ? 'code' : null;
+      const unique = table === 'assets' ? 'tag' : table === 'materials' ? 'code' : table === 'trainings' ? 'training_code' : null;
       if (unique && this.all(table).some(r => r.id !== id && r[unique].toLowerCase() === data[unique].toLowerCase())) fail('Código já cadastrado.');
       if (method === 'POST') id = this.insert(table,data);
       else this.sql.exec(`UPDATE ${table} SET payload=? WHERE id=?`,JSON.stringify(data),id);

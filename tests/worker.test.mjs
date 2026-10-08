@@ -33,13 +33,16 @@ function setup(t) {
   return {db,create,asset,tech,order,update,metric};
 }
 
-test('treinamentos técnicos possuem CRUD persistente e validação', t => {
+test('treinamentos técnicos possuem período, custos, ID e solicitação ao RH', t => {
   const {db,create} = setup(t);
-  const id=create('trainings',{title:'NR-10 Reciclagem',date:'2026-10-20',start_time:'08:00',end_time:'12:00',instructor:'SESMT',location:'Sala 1',modality:'Presencial',status:'Planejado',workload:4,participants:'Técnico',validity_days:730,notes:'Avaliação e lista de presença'});
+  const id=create('trainings',{training_code:'TR-001',title:'NR-10 Reciclagem',request_date:'2026-10-10',start_date:'2026-10-20',end_date:'2026-10-22',instructor:'SESMT',location:'Sala 1',modality:'Presencial',status:'Planejado',workload:12,planned_cost:1500,actual_cost:0,participants:'Técnico',validity_days:730,notes:'Avaliação e lista de presença'});
   assert.equal(db.state().trainings[0].title,'NR-10 Reciclagem');
-  db.handle('PUT','/api/trainings/'+id,{...db.get('trainings',id),status:'Realizado'});
+  db.handle('PUT','/api/trainings/'+id,{...db.get('trainings',id),status:'Realizado',actual_cost:1450});
   assert.equal(db.get('trainings',id).status,'Realizado');
-  assert.throws(()=>create('trainings',{title:'Inválido',date:'2026-10-20',start_time:'12:00',end_time:'08:00'}),/Horário final/);
+  assert.equal(db.get('trainings',id).actual_cost,1450);
+  assert.throws(()=>create('trainings',{training_code:'TR-002',title:'Inválido',request_date:'2026-10-21',start_date:'2026-10-20',end_date:'2026-10-22'}),/solicitação ao RH/);
+  assert.throws(()=>create('trainings',{training_code:'TR-003',title:'Inválido',request_date:'2026-10-10',start_date:'2026-10-22',end_date:'2026-10-20'}),/Data de fim/);
+  assert.throws(()=>create('trainings',{training_code:'TR-001',title:'Duplicado',request_date:'2026-10-10',start_date:'2026-10-20',end_date:'2026-10-20'}),/Código já cadastrado/);
 });
 
 test('Importação de OS cria lote válido e reverte todo o lote quando uma linha falha',t => {

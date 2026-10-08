@@ -17,7 +17,7 @@ DB = Path(os.environ.get('PCM_DB', ROOT / 'data' / 'pcm.sqlite3'))
 TABLES = {
  'assets': ['tag','name','production_line','area','criticality','manufacturer','model','serial','operating_hours_month','notes'],
  'team': ['name','specialty','hours_day','productivity_rate','days_week','shift','active'],
- 'trainings': ['title','date','start_time','end_time','instructor','location','modality','status','workload','participants','validity_days','notes'],
+ 'trainings': ['training_code','title','request_date','start_date','end_date','instructor','location','modality','status','workload','planned_cost','actual_cost','participants','validity_days','notes'],
  'materials': ['code','name','unit','quantity','minimum','unit_cost','location'],
  'projects': ['name','start','end','owner','notes'],
  'plans': ['name','asset_id','type','interval_days','next_date','hours','specialty','checklist','active'],
@@ -26,7 +26,7 @@ TABLES = {
 DEFAULTS = {
  'assets': dict(tag='',name='',production_line='',area='',criticality='B',manufacturer='',model='',serial='',operating_hours_month=0,notes=''),
  'team': dict(name='',specialty='Mecânica',hours_day=8,productivity_rate=100,days_week=5,shift='1º turno',active=True),
- 'trainings': dict(title='',date='',start_time='',end_time='',instructor='',location='',modality='Presencial',status='Planejado',workload=1,participants='',validity_days=365,notes=''),
+ 'trainings': dict(training_code='',title='',request_date='',start_date='',end_date='',instructor='',location='',modality='Presencial',status='Planejado',workload=1,planned_cost=0,actual_cost=0,participants='',validity_days=365,notes=''),
  'materials': dict(code='',name='',unit='un',quantity=0,minimum=0,unit_cost=0,location=''),
  'projects': dict(name='',start='',end='',owner='',notes=''),
  'plans': dict(name='',asset_id='',type='Preventiva',interval_days=30,next_date='',hours=2,specialty='Mecânica',checklist='',active=True),
@@ -58,6 +58,11 @@ def all_rows(db, table):
     rows=[]
     for r in db.execute(f'SELECT * FROM {table} ORDER BY id'):
         data=json.loads(r['payload'])
+        if table=='trainings' and not data.get('start_date') and data.get('date'):
+            data['start_date']=data['date']; data['end_date']=data['date']
+        if table=='trainings':
+            data.setdefault('training_code',f'TR-{r["id"]:04d}')
+            data.setdefault('request_date',data.get('start_date',''))
         if table=='assets' and not data.get('production_line') and data.get('area') and data.get('area') not in ['Utilidades','Embalagem'] and not data.get('area','').startswith('Célula'):
             data['production_line']=data['area']
             data['area']=''
@@ -124,16 +129,16 @@ def validate(db, table, incoming):
     data=dict(DEFAULTS[table])
     for key in TABLES[table]:
         if key in incoming: data[key]=incoming[key]
-    required={'assets':['tag','name'],'team':['name'],'trainings':['title','date'],'materials':['code','name'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
+    required={'assets':['tag','name'],'team':['name'],'trainings':['training_code','title','request_date','start_date','end_date'],'materials':['code','name'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
     for key in required[table]:
         if not str(data[key]).strip(): raise ValueError(f'Preencha o campo {key}.')
     for key,value in data.items():
-        if key in ['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days','workload','validity_days']:
+        if key in ['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days','workload','validity_days','planned_cost','actual_cost']:
             if isinstance(value, bool): raise ValueError(f'Número inválido: {key}.')
             try: data[key]=float(value)
             except (ValueError,TypeError): raise ValueError(f'Número inválido: {key}.')
             if not 0 <= data[key] <= 100000000: raise ValueError(f'Valor fora do limite: {key}.')
-        elif key in ['start','end','next_date','requested_date','due_date','scheduled_date','completed_date','date'] and value:
+        elif key in ['start','end','next_date','requested_date','due_date','scheduled_date','completed_date','request_date','start_date','end_date'] and value:
             try: date.fromisoformat(value)
             except (ValueError,TypeError): raise ValueError(f'Data inválida: {key}.')
         elif key in ['active']:
@@ -159,7 +164,8 @@ def validate(db, table, incoming):
         if data['status'] not in ['Planejado','Realizado','Cancelado']: raise ValueError('Status de treinamento inválido.')
         if data['modality'] not in ['Presencial','Online','Híbrido']: raise ValueError('Modalidade inválida.')
         if data['workload']<=0 or data['validity_days']<0: raise ValueError('Carga horária e validade devem ser válidas.')
-        if data['start_time'] and data['end_time'] and data['end_time']<=data['start_time']: raise ValueError('Horário final deve ser posterior ao inicial.')
+        if data['request_date']>data['start_date']: raise ValueError('A solicitação ao RH não pode ser posterior ao início do treinamento.')
+        if data['end_date']<data['start_date']: raise ValueError('Data de fim deve ser igual ou posterior à data de início.')
     if table in ['team','orders'] and data['shift'] not in SHIFTS: raise ValueError('Selecione um dos três turnos.')
     if table=='plans' and (data['interval_days']<1 or data['interval_days']%1): raise ValueError('Periodicidade deve ser um número inteiro de dias, maior que zero.')
     if table=='projects' and data['end']<data['start']: raise ValueError('Fim deve ser posterior ao início.')
@@ -295,7 +301,7 @@ class Handler(BaseHTTPRequestHandler):
                         if method=='PUT':
                             previous=json.loads(db.execute('SELECT payload FROM orders WHERE id=?',(rid,)).fetchone()['payload'])
                             if data['status']!=previous['status'] and data['status'] not in TRANSITIONS[previous['status']]: raise ValueError('Transição inválida: '+previous['status']+' → '+data['status']+'.')
-                    unique='tag' if table=='assets' else 'code' if table=='materials' else None
+                    unique='tag' if table=='assets' else 'code' if table=='materials' else 'training_code' if table=='trainings' else None
                     if unique and any(str(row[unique]).casefold()==data[unique].casefold() and row['id']!=rid for row in all_rows(db,table)): raise ValueError('Código já cadastrado.')
                     if method=='POST': rid=insert(db,table,data)
                     else: db.execute(f'UPDATE {table} SET payload=? WHERE id=?',(json.dumps(data,ensure_ascii=False),rid))
