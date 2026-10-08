@@ -23,4 +23,7 @@ test('formulário e ações de Spare Parts permanecem integrados', () => {
 
 test('agregador de Spare Parts é carregado antes da aplicação', () => {
   assert.ok(index.indexOf('/spare-parts.js') < index.indexOf('/app.js'));
+  assert.ok(index.indexOf('/spare-parts-import.js') < index.indexOf('/app.js'));
+  assert.match(app,/Importar Excel/);
+  assert.match(app,/download-spare-parts-template/);
 });

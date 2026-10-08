@@ -226,7 +226,7 @@ class Handler(BaseHTTPRequestHandler):
                 state['audit']=[dict(r) for r in db.execute('SELECT * FROM audit ORDER BY id')]
             return self.send_json(dict(format='pcm-backup-v1',exported_at=datetime.now().isoformat(),data=state))
         path=self.path.split('?')[0]
-        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/orders-import.js':'orders-import.js','/spare-parts.js':'spare-parts.js','/style.css':'style.css','/kpi-team.css':'kpi-team.css'}
+        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/orders-import.js':'orders-import.js','/spare-parts.js':'spare-parts.js','/spare-parts-import.js':'spare-parts-import.js','/style.css':'style.css','/kpi-team.css':'kpi-team.css'}
         if path not in allowed: return self.send_json({'error':'Não encontrado'},404)
         file=ROOT/'public'/allowed[path]
         raw=file.read_bytes(); self.send_response(200); self.send_header('Content-Type',mimetypes.guess_type(file)[0]+'; charset=utf-8'); self.send_header('Content-Length',str(len(raw))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(raw)
@@ -293,6 +293,19 @@ class Handler(BaseHTTPRequestHandler):
                         try: ids.append(insert(db,'orders',validate(db,'orders',row)))
                         except ValueError as error: raise ValueError(f'Linha {index+2}: {error}')
                     for rid in ids: audit(db,'Importação de OS','orders',rid)
+                    db.commit()
+                    return self.send_json({'ok':True,'count':len(ids),'ids':ids})
+                if parts==['api','spare_parts','import'] and method=='POST':
+                    rows=incoming.get('spare_parts')
+                    if not isinstance(rows,list) or not 1<=len(rows)<=500: raise ValueError('Envie de 1 a 500 componentes para importar.')
+                    ids=[]; seen={(row['asset_id'],row['sap_code'].casefold()) for row in all_rows(db,'spare_parts')}
+                    for index,row in enumerate(rows):
+                        try:
+                            data=validate(db,'spare_parts',row); key=(data['asset_id'],data['sap_code'].casefold())
+                            if key in seen: raise ValueError('Este código SAP já está cadastrado nesta máquina.')
+                            seen.add(key); ids.append(insert(db,'spare_parts',data))
+                        except ValueError as error: raise ValueError(f'Linha {index+2}: {error}')
+                    for rid in ids: audit(db,'Importação de Spare Parts','spare_parts',rid)
                     db.commit()
                     return self.send_json({'ok':True,'count':len(ids),'ids':ids})
                 if len(parts) not in [2,3] or parts[0]!='api' or parts[1] not in TABLES: return self.send_json({'error':'Rota inválida'},404)

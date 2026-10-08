@@ -81,3 +81,11 @@ test('template includes standard master-data dropdowns and input prompts on the 
   assert.doesNotMatch(files['xl/worksheets/sheet1.xml'], /legacyDrawing|VLOOKUP|Turno incompatível/);
   assert.equal(files['xl/comments1.xml'], undefined);
 });
+
+test('Spare Parts template names the sheet and provides a machine dropdown', () => {
+  const files=entries([['Máquina*','Descrição*','Código do fabricante','Fabricante','Código SAP*','Quantidade*']],{sheetName:'Spare parts',validations:{0:['MON-001 · Montadora','TST-001 · Teste']}});
+  assert.match(files['xl/workbook.xml'],/name="Spare parts"/);
+  assert.match(files['xl/worksheets/sheet1.xml'],/type="list"[^>]*sqref="A2:A1000"/);
+  assert.match(files['xl/worksheets/sheet1.xml'],/formula1>Listas!\$A\$2:\$A\$3/);
+  assert.match(files['xl/worksheets/sheet2.xml'],/MON-001 · Montadora/);
+});

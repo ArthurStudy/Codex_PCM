@@ -23,7 +23,7 @@ const nodeCount = run('Testes Node e runtime Cloudflare',process.execPath,[
   '--test','--test-reporter=tap',
   'tests/worker.test.mjs','tests/capacity.test.mjs','tests/excel-export.test.mjs',
   'tests/pcm-acceptance-100.test.mjs','tests/kpi-dashboard.test.mjs','tests/spare-parts.test.mjs',
-  'tests/spare-parts-ui.test.mjs','tests/cloudflare-runtime.test.mjs'
+  'tests/spare-parts-import.test.mjs','tests/spare-parts-ui.test.mjs','tests/cloudflare-runtime.test.mjs'
 ],output => Number(/^1\.\.(\d+)$/m.exec(output)?.[1]));
 
 const pythonCandidates = process.env.PYTHON ? [[process.env.PYTHON,[]]] : process.platform === 'win32'

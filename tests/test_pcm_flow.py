@@ -228,6 +228,29 @@ class PCMFlowTests(unittest.TestCase):
         self.assertIn('Número inválido', invalid['error'])
         self.assertEqual(self.state(), before_restore)
 
+    def test_spare_parts_persist_by_machine_and_legacy_backup_restores_empty_list(self):
+        second = self.create('assets', dict(tag='QA-LAV-02', name='Prensa', production_line='Linha 2'))
+        first = self.create('spare_parts', dict(asset_id=self.asset, description='Sensor indutivo', manufacturer_code='XS-18', manufacturer='Acme', sap_code=' 000123 ', quantity=2))
+        self.create('spare_parts', dict(asset_id=second, description='Sensor indutivo', manufacturer_code='XS-18', manufacturer='Acme', sap_code='000123', quantity=3))
+        parts = self.state()['spare_parts']
+        self.assertEqual(next(part for part in parts if part['id'] == first)['sap_code'], '000123')
+        self.assertEqual(sum(part['quantity'] for part in parts), 5)
+        self.call('POST', '/api/spare_parts', dict(asset_id=self.asset, description='Duplicado', sap_code='000123', quantity=1), expected=400)
+        self.call('DELETE', '/api/assets/' + str(self.asset), {}, expected=400)
+        backup = self.call('GET', '/api/backup')
+        del backup['data']['spare_parts']
+        self.call('POST', '/api/restore', backup)
+        self.assertEqual(self.state()['spare_parts'], [])
+
+    def test_spare_parts_excel_batch_is_atomic(self):
+        second = self.create('assets', dict(tag='QA-LAV-02', name='Prensa', production_line='Linha 2'))
+        part = dict(asset_id=self.asset, description='Rolamento', manufacturer_code='6200Z', manufacturer='SKF', sap_code='SAP-IMP', quantity=2)
+        result = self.call('POST', '/api/spare_parts/import', {'spare_parts': [part, dict(part, asset_id=second, quantity=3)]})
+        self.assertEqual(result['count'], 2)
+        invalid = [dict(part, sap_code='NOVO'), dict(part, asset_id=999, sap_code='ERRO')]
+        self.call('POST', '/api/spare_parts/import', {'spare_parts': invalid}, expected=400)
+        self.assertFalse(any(row['sap_code'] == 'NOVO' for row in self.state()['spare_parts']))
+
     def test_completion_date_and_terminal_transition_are_guarded(self):
         rid = self.new_order()
         self.update(rid, status='Programada', scheduled_date=self.today, assignee_id=self.tech)

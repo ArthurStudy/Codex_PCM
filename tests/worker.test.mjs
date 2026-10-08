@@ -227,6 +227,32 @@ test('Backup antigo de ativos sem linha continua restaurável',t => {
   assert.equal(db.get('assets',asset).production_line,'');
 });
 
+test('Spare parts vinculam máquinas, validam SAP e permanecem compatíveis com backups antigos',t => {
+  const {db,create,asset} = setup(t);
+  const second=create('assets',{tag:'TEST-02',name:'Prensa',production_line:'Linha B'});
+  const first=create('spare_parts',{asset_id:asset,description:'Sensor indutivo',manufacturer_code:'XS-18',manufacturer:'Acme',sap_code:' 000123 ',quantity:2});
+  create('spare_parts',{asset_id:second,description:'Sensor indutivo',manufacturer_code:'XS-18',manufacturer:'Acme',sap_code:'000123',quantity:3});
+  assert.equal(db.get('spare_parts',first).sap_code,'000123');
+  assert.equal(db.state().spare_parts.reduce((n,p)=>n+p.quantity,0),5);
+  assert.throws(()=>create('spare_parts',{asset_id:asset,description:'Duplicado',sap_code:'000123',quantity:1}),/já está cadastrado nesta máquina/);
+  for(const quantity of [0,1.5,-1]) assert.throws(()=>create('spare_parts',{asset_id:asset,description:'Inválido',sap_code:'SAP-'+quantity,quantity}),/quantity|inteiro maior que zero/);
+  assert.throws(()=>db.handle('DELETE',`/api/assets/${asset}`),/vinculado/);
+  const backup=db.handle('GET','/api/backup');
+  assert.equal(backup.data.spare_parts.length,2);
+  delete backup.data.spare_parts;
+  db.handle('POST','/api/restore',backup);
+  assert.deepEqual(db.state().spare_parts,[]);
+});
+
+test('importação de Spare Parts é atômica e bloqueia duplicidade por máquina',t => {
+  const {db,create}=setup(t),asset=create('assets',{tag:'IMP-001',name:'Máquina importação',criticality:'B'}),second=create('assets',{tag:'IMP-002',name:'Máquina dois',criticality:'B'});
+  const part={asset_id:asset,description:'Rolamento',manufacturer_code:'6200Z',manufacturer:'SKF',sap_code:'SAP-IMP',quantity:2};
+  const result=db.handle('POST','/api/spare_parts/import',{spare_parts:[part,{...part,asset_id:second,quantity:3}]});
+  assert.equal(result.count,2);assert.equal(db.state().spare_parts.filter(row=>row.sap_code==='SAP-IMP').length,2);
+  assert.throws(()=>db.handle('POST','/api/spare_parts/import',{spare_parts:[{...part,sap_code:'NOVO'},{...part,asset_id:999,sap_code:'ERRO'}]}),/Linha 3/);
+  assert.equal(db.state().spare_parts.some(row=>row.sap_code==='NOVO'),false);
+});
+
 test('Autenticação valida assinatura, e-mail, emissor, audiência e expiração',async () => {
   const {publicKey,privateKey} = await generateKeyPair('RS256');
   const jwk = await exportJWK(publicKey);

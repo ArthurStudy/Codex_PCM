@@ -218,6 +218,19 @@ export class PCMDatabase {
       ids.forEach(id => this.audit('Importação de OS','orders',id));
       return { ok:true, count:ids.length, ids };
     }
+    if (path === '/api/spare_parts/import' && method === 'POST') {
+      if (!Array.isArray(incoming.spare_parts) || !incoming.spare_parts.length || incoming.spare_parts.length > 500) fail('Envie de 1 a 500 componentes para importar.');
+      const seen = new Set(this.all('spare_parts').map(row => `${row.asset_id}|${row.sap_code.toLowerCase()}`));
+      const ids = incoming.spare_parts.map((row,index) => {
+        try {
+          const data=this.validate('spare_parts',row),key=`${data.asset_id}|${data.sap_code.toLowerCase()}`;
+          if(seen.has(key))fail('Este código SAP já está cadastrado nesta máquina.');
+          seen.add(key);return this.insert('spare_parts',data);
+        } catch (error) { fail(`Linha ${index + 2}: ${error.message}`); }
+      });
+      ids.forEach(id => this.audit('Importação de Spare Parts','spare_parts',id));
+      return { ok:true, count:ids.length, ids };
+    }
     const match = path.match(/^\/api\/([a-z_]+)(?:\/(\d+))?$/);
     if (!match || !Object.hasOwn(tables, match[1])) fail('Rota inválida.',404);
     const table = match[1];
