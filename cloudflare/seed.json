@@ -81,6 +81,7 @@
         "production_line": ""
       }
     ],
+    "trainings": [],
     "team": [
       {
         "name": "Carlos Mendes",
@@ -221,6 +222,7 @@
         "id": 4
       }
     ],
+    "spare_parts": [],
     "orders": [
       {
         "title": "Substituir rolamento do transportador",
