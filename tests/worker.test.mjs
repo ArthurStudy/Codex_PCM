@@ -33,6 +33,15 @@ function setup(t) {
   return {db,create,asset,tech,order,update,metric};
 }
 
+test('treinamentos técnicos possuem CRUD persistente e validação', t => {
+  const {db,create} = setup(t);
+  const id=create('trainings',{title:'NR-10 Reciclagem',date:'2026-10-20',start_time:'08:00',end_time:'12:00',instructor:'SESMT',location:'Sala 1',modality:'Presencial',status:'Planejado',workload:4,participants:'Técnico',validity_days:730,notes:'Avaliação e lista de presença'});
+  assert.equal(db.state().trainings[0].title,'NR-10 Reciclagem');
+  db.handle('PUT','/api/trainings/'+id,{...db.get('trainings',id),status:'Realizado'});
+  assert.equal(db.get('trainings',id).status,'Realizado');
+  assert.throws(()=>create('trainings',{title:'Inválido',date:'2026-10-20',start_time:'12:00',end_time:'08:00'}),/Horário final/);
+});
+
 test('Importação de OS cria lote válido e reverte todo o lote quando uma linha falha',t => {
   const {db,asset} = setup(t);
   const valid = {title:'Inspeção em lote',asset_id:asset,type:'Inspeção',priority:'P3',status:'Aberta',shift:'1º turno',requested_date:'2026-10-03',estimated_hours:2};

@@ -9,10 +9,10 @@ export class InputError extends Error {
 const fail = (message, status) => { throw new InputError(message, status); };
 const { defaults, tables, statuses, types, shifts, transitions } = model;
 const names = Object.keys(tables);
-const numeric = new Set(['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']);
-const dates = new Set(['start','end','next_date','requested_date','due_date','scheduled_date','completed_date']);
+const numeric = new Set(['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days','workload','validity_days']);
+const dates = new Set(['start','end','next_date','requested_date','due_date','scheduled_date','completed_date','date']);
 const foreign = { asset_id:'assets', assignee_id:'team', project_id:'projects', plan_id:'plans' };
-const required = { assets:['tag','name'],team:['name'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
+const required = { assets:['tag','name'],team:['name'],trainings:['title','date'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
 const sum = (rows, key) => rows.reduce((n, r) => n + r[key], 0);
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit' }).format(new Date());
 export function validDate(value) {
@@ -36,7 +36,7 @@ export class PCMDatabase {
       this.sql.exec('CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,time TEXT,event TEXT,entity TEXT,record_id INTEGER)');
       if (this.one("SELECT value FROM meta WHERE key='initialized'")) return;
       const offset = Math.round((Date.parse(this.clock()) - Date.parse(seed.reference_date)) / 86400000);
-      for (const table of names) for (const original of seed.data[table]) {
+      for (const table of names) for (const original of seed.data[table] || []) {
         const row = { ...original };
         delete row.id;
         for (const key of dates) if (row[key]) row[key] = addDays(row[key], offset);
@@ -88,6 +88,12 @@ export class PCMDatabase {
     if (table === 'team' && data.productivity_rate > 100) fail('Taxa de produtividade deve ser entre 0 e 100%.');
     if (table === 'team' && data.hours_day > 24) fail('Capacidade diária deve ser até 24 h.');
     if (table === 'team' && (data.days_week < 1 || data.days_week > 7)) fail('Dias de trabalho por semana devem ser entre 1 e 7.');
+    if (table === 'trainings') {
+      if (!['Planejado','Realizado','Cancelado'].includes(data.status)) fail('Status de treinamento inválido.');
+      if (!['Presencial','Online','Híbrido'].includes(data.modality)) fail('Modalidade inválida.');
+      if (data.workload <= 0 || data.validity_days < 0) fail('Carga horária e validade devem ser válidas.');
+      if (data.start_time && data.end_time && data.end_time <= data.start_time) fail('Horário final deve ser posterior ao inicial.');
+    }
     if (['team','orders'].includes(table) && !shifts.includes(data.shift)) fail('Selecione um dos três turnos.');
     if (table === 'plans' && (!Number.isInteger(data.interval_days) || data.interval_days < 1)) fail('Periodicidade deve ser um número inteiro de dias, maior que zero.');
     if (table === 'projects' && data.end < data.start) fail('Fim deve ser posterior ao início.');
@@ -160,6 +166,7 @@ export class PCMDatabase {
     if (path === '/api/restore' && method === 'POST') {
       if (incoming.format !== 'pcm-backup-v1' || !object(incoming.data)) fail('Backup inválido.');
       const payload = incoming.data;
+      if (!Object.hasOwn(payload,'trainings')) payload.trainings = [];
       if (names.some(t => !Array.isArray(payload[t]))) fail('Backup incompleto.');
       for (const table of [...names].reverse()) this.sql.exec(`DELETE FROM ${table}`);
       for (const table of names) {

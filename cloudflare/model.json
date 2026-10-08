@@ -21,6 +21,20 @@
       "active": true,
       "productivity_rate": 100
     },
+    "trainings": {
+      "title": "",
+      "date": "",
+      "start_time": "",
+      "end_time": "",
+      "instructor": "",
+      "location": "",
+      "modality": "Presencial",
+      "status": "Planejado",
+      "workload": 1,
+      "participants": "",
+      "validity_days": 365,
+      "notes": ""
+    },
     "materials": {
       "code": "",
       "name": "",
@@ -96,6 +110,20 @@
       "shift",
       "active",
       "productivity_rate"
+    ],
+    "trainings": [
+      "title",
+      "date",
+      "start_time",
+      "end_time",
+      "instructor",
+      "location",
+      "modality",
+      "status",
+      "workload",
+      "participants",
+      "validity_days",
+      "notes"
     ],
     "materials": [
       "code",

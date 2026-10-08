@@ -128,7 +128,7 @@ def validate(db, table, incoming):
     for key in required[table]:
         if not str(data[key]).strip(): raise ValueError(f'Preencha o campo {key}.')
     for key,value in data.items():
-        if key in ['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days']:
+        if key in ['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days','workload','validity_days']:
             if isinstance(value, bool): raise ValueError(f'Número inválido: {key}.')
             try: data[key]=float(value)
             except (ValueError,TypeError): raise ValueError(f'Número inválido: {key}.')
@@ -242,6 +242,7 @@ class Handler(BaseHTTPRequestHandler):
                 if parts==['api','restore'] and method=='POST':
                     if incoming.get('format')!='pcm-backup-v1' or not isinstance(incoming.get('data'),dict): raise ValueError('Backup inválido.')
                     payload=incoming['data']
+                    payload.setdefault('trainings',[])
                     if any(not isinstance(payload.get(t),list) for t in TABLES): raise ValueError('Backup incompleto.')
                     for table in reversed(TABLES): db.execute(f'DELETE FROM {table}')
                     for table in TABLES:
