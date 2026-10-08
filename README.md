@@ -37,6 +37,8 @@ Salve alterações antes de avançar a etapa. Datas futuras de solicitação e c
 - Ativos, equipe e materiais: cadastro e edição; exclusões bloqueadas quando existem vínculos.
 - Dados e histórico: backup JSON, restauração transacional e últimas alterações.
 
+Para avaliar meses de OS fictícias na base local, consulte [SIMULACAO_HISTORICA.md](SIMULACAO_HISTORICA.md). A carga é identificada, repetível e cria backup antes da gravação; não é enviada ao Cloudflare.
+
 ## Critérios e limites
 
 - **Backlog:** retrato atual das OS não concluídas e não canceladas. Soma HH estimados; não subtrai apontamentos parciais. Não é histórico por período.

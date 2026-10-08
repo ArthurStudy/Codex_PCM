@@ -183,6 +183,8 @@ class Handler(BaseHTTPRequestHandler):
         payload=json.dumps(value,ensure_ascii=False).encode()
         self.send_response(status); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Content-Length',str(len(payload))); self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(payload)
     def do_GET(self):
+        if self.path=='/api/local-db-path':
+            return self.send_json({'path':str(DB.resolve(strict=True))})
         if self.path.startswith('/api/metrics?'):
             try:
                 query=parse_qs(urlparse(self.path).query)
@@ -202,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
                 state['audit']=[dict(r) for r in db.execute('SELECT * FROM audit ORDER BY id')]
             return self.send_json(dict(format='pcm-backup-v1',exported_at=datetime.now().isoformat(),data=state))
         path=self.path.split('?')[0]
-        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/orders-import.js':'orders-import.js','/style.css':'style.css'}
+        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/orders-import.js':'orders-import.js','/style.css':'style.css','/kpi-team.css':'kpi-team.css'}
         if path not in allowed: return self.send_json({'error':'Não encontrado'},404)
         file=ROOT/'public'/allowed[path]
         raw=file.read_bytes(); self.send_response(200); self.send_header('Content-Type',mimetypes.guess_type(file)[0]+'; charset=utf-8'); self.send_header('Content-Length',str(len(raw))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(raw)

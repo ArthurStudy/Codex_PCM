@@ -25,6 +25,7 @@ Sem denominador, percentuais mostram “Sem dados”. Zero em esforço e custo p
 - Barras por prioridade da carteira atual.
 - Pareto por máquina: horas decrescentes e marcador de percentual acumulado.
 - Ações para P1, prazo vencido, material e apontamento incompleto; grupos podem se sobrepor.
+- Carteira aberta por técnico: inclui todos os profissionais cadastrados, segmenta Corretiva, Preventiva, Preditiva, Inspeção e Melhoria, e permite filtrar tipo e granularidade diária, semanal ou mensal. O clique abre exatamente as OS abertas daquele técnico.
 
 A metodologia também aparece na própria tela. Reprogramações modificam a referência de aderência. Paradas simultâneas não são consolidadas: soma de horas por OS não é indisponibilidade. MTBF, disponibilidade, OEE e cumprimento histórico de planos dependem de dados adicionais.
 
