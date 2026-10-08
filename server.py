@@ -17,6 +17,7 @@ DB = Path(os.environ.get('PCM_DB', ROOT / 'data' / 'pcm.sqlite3'))
 TABLES = {
  'assets': ['tag','name','production_line','area','criticality','manufacturer','model','serial','operating_hours_month','notes'],
  'team': ['name','specialty','hours_day','productivity_rate','days_week','shift','active'],
+ 'trainings': ['title','date','start_time','end_time','instructor','location','modality','status','workload','participants','validity_days','notes'],
  'materials': ['code','name','unit','quantity','minimum','unit_cost','location'],
  'projects': ['name','start','end','owner','notes'],
  'plans': ['name','asset_id','type','interval_days','next_date','hours','specialty','checklist','active'],
@@ -25,6 +26,7 @@ TABLES = {
 DEFAULTS = {
  'assets': dict(tag='',name='',production_line='',area='',criticality='B',manufacturer='',model='',serial='',operating_hours_month=0,notes=''),
  'team': dict(name='',specialty='Mecânica',hours_day=8,productivity_rate=100,days_week=5,shift='1º turno',active=True),
+ 'trainings': dict(title='',date='',start_time='',end_time='',instructor='',location='',modality='Presencial',status='Planejado',workload=1,participants='',validity_days=365,notes=''),
  'materials': dict(code='',name='',unit='un',quantity=0,minimum=0,unit_cost=0,location=''),
  'projects': dict(name='',start='',end='',owner='',notes=''),
  'plans': dict(name='',asset_id='',type='Preventiva',interval_days=30,next_date='',hours=2,specialty='Mecânica',checklist='',active=True),
@@ -122,7 +124,7 @@ def validate(db, table, incoming):
     data=dict(DEFAULTS[table])
     for key in TABLES[table]:
         if key in incoming: data[key]=incoming[key]
-    required={'assets':['tag','name'],'team':['name'],'materials':['code','name'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
+    required={'assets':['tag','name'],'team':['name'],'trainings':['title','date'],'materials':['code','name'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
     for key in required[table]:
         if not str(data[key]).strip(): raise ValueError(f'Preencha o campo {key}.')
     for key,value in data.items():
@@ -131,7 +133,7 @@ def validate(db, table, incoming):
             try: data[key]=float(value)
             except (ValueError,TypeError): raise ValueError(f'Número inválido: {key}.')
             if not 0 <= data[key] <= 100000000: raise ValueError(f'Valor fora do limite: {key}.')
-        elif key in ['start','end','next_date','requested_date','due_date','scheduled_date','completed_date'] and value:
+        elif key in ['start','end','next_date','requested_date','due_date','scheduled_date','completed_date','date'] and value:
             try: date.fromisoformat(value)
             except (ValueError,TypeError): raise ValueError(f'Data inválida: {key}.')
         elif key in ['active']:
@@ -153,6 +155,11 @@ def validate(db, table, incoming):
     if table=='team' and (isinstance(incoming.get('productivity_rate'),bool) or data['productivity_rate']>100): raise ValueError('Taxa de produtividade deve ser entre 0 e 100%.')
     if table=='team' and data['hours_day']>24: raise ValueError('Capacidade diária deve ser até 24 h.')
     if table=='team' and not 1<=data['days_week']<=7: raise ValueError('Dias de trabalho por semana devem ser entre 1 e 7.')
+    if table=='trainings':
+        if data['status'] not in ['Planejado','Realizado','Cancelado']: raise ValueError('Status de treinamento inválido.')
+        if data['modality'] not in ['Presencial','Online','Híbrido']: raise ValueError('Modalidade inválida.')
+        if data['workload']<=0 or data['validity_days']<0: raise ValueError('Carga horária e validade devem ser válidas.')
+        if data['start_time'] and data['end_time'] and data['end_time']<=data['start_time']: raise ValueError('Horário final deve ser posterior ao inicial.')
     if table in ['team','orders'] and data['shift'] not in SHIFTS: raise ValueError('Selecione um dos três turnos.')
     if table=='plans' and (data['interval_days']<1 or data['interval_days']%1): raise ValueError('Periodicidade deve ser um número inteiro de dias, maior que zero.')
     if table=='projects' and data['end']<data['start']: raise ValueError('Fim deve ser posterior ao início.')
