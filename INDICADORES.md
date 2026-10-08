@@ -26,6 +26,8 @@ Sem denominador, percentuais mostram “Sem dados”. Zero em esforço e custo p
 - Pareto por máquina: horas decrescentes e marcador de percentual acumulado.
 - Ações para P1, prazo vencido, material e apontamento incompleto; grupos podem se sobrepor.
 - Carteira aberta por técnico: inclui todos os profissionais cadastrados, segmenta Corretiva, Preventiva, Preditiva, Inspeção e Melhoria, e permite filtrar tipo e granularidade diária, semanal ou mensal. O clique abre exatamente as OS abertas daquele técnico.
+- Preventiva planejada × realizada: fixa os 12 meses do ano, destaca o atingimento total ponderado e mostra o percentual de cada mês contra a meta mínima de 75%.
+- Wrench Time: o valor real fica como não mensurado enquanto não houver observação de horas em atividade direta sobre horas disponíveis. A tela expõe HH reais de OS concluídas, capacidade produtiva e cobertura, além de uma relação provisória de ocupação em OS claramente identificada como proxy, sem meta. Esse proxy não é apresentado como Wrench Time.
 
 A metodologia também aparece na própria tela. Reprogramações modificam a referência de aderência. Paradas simultâneas não são consolidadas: soma de horas por OS não é indisponibilidade. MTBF, disponibilidade, OEE e cumprimento histórico de planos dependem de dados adicionais.
 
