@@ -47,6 +47,14 @@
       "unit_cost": 0,
       "location": ""
     },
+    "spare_parts": {
+      "asset_id": "",
+      "description": "",
+      "manufacturer_code": "",
+      "manufacturer": "",
+      "sap_code": "",
+      "quantity": 1
+    },
     "projects": {
       "name": "",
       "start": "",
@@ -76,6 +84,8 @@
       "due_date": "",
       "scheduled_date": "",
       "completed_date": "",
+      "start_time": "",
+      "end_time": "",
       "assignee_id": "",
       "estimated_hours": 2,
       "actual_hours": 0,
@@ -140,6 +150,14 @@
       "unit_cost",
       "location"
     ],
+    "spare_parts": [
+      "asset_id",
+      "description",
+      "manufacturer_code",
+      "manufacturer",
+      "sap_code",
+      "quantity"
+    ],
     "projects": [
       "name",
       "start",
@@ -169,6 +187,8 @@
       "due_date",
       "scheduled_date",
       "completed_date",
+      "start_time",
+      "end_time",
       "assignee_id",
       "estimated_hours",
       "actual_hours",

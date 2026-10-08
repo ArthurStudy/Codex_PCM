@@ -12,7 +12,7 @@ const names = Object.keys(tables);
 const numeric = new Set(['hours_day','productivity_rate','days_week','quantity','minimum','unit_cost','hours','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','operating_hours_month','interval_days','workload','validity_days','planned_cost','actual_cost']);
 const dates = new Set(['start','end','next_date','requested_date','due_date','scheduled_date','completed_date','request_date','start_date','end_date']);
 const foreign = { asset_id:'assets', assignee_id:'team', project_id:'projects', plan_id:'plans' };
-const required = { assets:['tag','name'],team:['name'],trainings:['training_code','title','request_date','start_date','end_date'],materials:['code','name'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
+const required = { assets:['tag','name'],team:['name'],trainings:['training_code','title','request_date','start_date','end_date'],materials:['code','name'],spare_parts:['asset_id','description','sap_code'],projects:['name','start','end'],plans:['name','asset_id','next_date'],orders:['title','asset_id','requested_date'] };
 const sum = (rows, key) => rows.reduce((n, r) => n + r[key], 0);
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit' }).format(new Date());
 export function validDate(value) {
@@ -85,6 +85,11 @@ export class PCMDatabase {
       if (known) data.production_line = known.production_line;
       if (data.production_line && data.area) fail('Selecione uma linha de produção ou uma área legada, não ambas.');
     }
+    if (table === 'spare_parts') {
+      data.sap_code = data.sap_code.trim().toUpperCase();
+      data.manufacturer_code = data.manufacturer_code.trim();
+      if (!Number.isInteger(data.quantity) || data.quantity < 1) fail('A quantidade utilizada na máquina deve ser um número inteiro maior que zero.');
+    }
     if (table === 'team' && data.productivity_rate > 100) fail('Taxa de produtividade deve ser entre 0 e 100%.');
     if (table === 'team' && data.hours_day > 24) fail('Capacidade diária deve ser até 24 h.');
     if (table === 'team' && (data.days_week < 1 || data.days_week > 7)) fail('Dias de trabalho por semana devem ser entre 1 e 7.');
@@ -99,6 +104,7 @@ export class PCMDatabase {
     if (table === 'plans' && (!Number.isInteger(data.interval_days) || data.interval_days < 1)) fail('Periodicidade deve ser um número inteiro de dias, maior que zero.');
     if (table === 'projects' && data.end < data.start) fail('Fim deve ser posterior ao início.');
     if (table === 'orders') {
+      for (const timeKey of ['start_time','end_time']) if (data[timeKey] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(data[timeKey])) fail(`Horário inválido: ${timeKey}. Use HH:MM.`);
       if (!statuses.includes(data.status) || !['P1','P2','P3','P4'].includes(data.priority)) fail('Situação ou prioridade inválida.');
       if (data.estimated_hours <= 0) fail('Informe uma estimativa maior que zero.');
       if (data.requested_date > this.clock()) fail('A solicitação não pode ter data futura.');
@@ -168,6 +174,7 @@ export class PCMDatabase {
       if (incoming.format !== 'pcm-backup-v1' || !object(incoming.data)) fail('Backup inválido.');
       const payload = incoming.data;
       if (!Object.hasOwn(payload,'trainings')) payload.trainings = [];
+      if (!Object.hasOwn(payload,'spare_parts')) payload.spare_parts = [];
       if (names.some(t => !Array.isArray(payload[t]))) fail('Backup incompleto.');
       for (const table of [...names].reverse()) this.sql.exec(`DELETE FROM ${table}`);
       for (const table of names) {
@@ -211,7 +218,7 @@ export class PCMDatabase {
       ids.forEach(id => this.audit('Importação de OS','orders',id));
       return { ok:true, count:ids.length, ids };
     }
-    const match = path.match(/^\/api\/([a-z]+)(?:\/(\d+))?$/);
+    const match = path.match(/^\/api\/([a-z_]+)(?:\/(\d+))?$/);
     if (!match || !Object.hasOwn(tables, match[1])) fail('Rota inválida.',404);
     const table = match[1];
     let id = match[2] ? Number(match[2]) : null;
@@ -221,7 +228,7 @@ export class PCMDatabase {
     let event = { POST:'Criação',PUT:'Atualização',DELETE:'Exclusão' }[method];
     if (method === 'DELETE') {
       if (table === 'orders') fail('OS não pode ser excluída. Use Cancelada com justificativa para preservar o histórico.');
-      const references = { assets:[['orders','asset_id'],['plans','asset_id']],team:[['orders','assignee_id']],projects:[['orders','project_id']],plans:[['orders','plan_id']] };
+      const references = { assets:[['orders','asset_id'],['plans','asset_id'],['spare_parts','asset_id']],team:[['orders','assignee_id']],projects:[['orders','project_id']],plans:[['orders','plan_id']] };
       for (const [other,key] of references[table] || []) if (this.all(other).some(r => r[key] === id)) fail('Registro vinculado. Remova os vínculos antes de excluir.');
       this.sql.exec(`DELETE FROM ${table} WHERE id=?`,id);
     } else {
@@ -235,6 +242,7 @@ export class PCMDatabase {
       }
       const unique = table === 'assets' ? 'tag' : table === 'materials' ? 'code' : table === 'trainings' ? 'training_code' : null;
       if (unique && this.all(table).some(r => r.id !== id && r[unique].toLowerCase() === data[unique].toLowerCase())) fail('Código já cadastrado.');
+      if (table === 'spare_parts' && this.all(table).some(r => r.id !== id && r.asset_id === data.asset_id && r.sap_code.toLowerCase() === data.sap_code.toLowerCase())) fail('Este código SAP já está cadastrado nesta máquina.');
       if (method === 'POST') id = this.insert(table,data);
       else this.sql.exec(`UPDATE ${table} SET payload=? WHERE id=?`,JSON.stringify(data),id);
     }

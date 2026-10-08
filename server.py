@@ -3,6 +3,7 @@ import argparse
 import calendar
 import json
 import mimetypes
+import re
 import os
 import sqlite3
 import threading
@@ -19,18 +20,20 @@ TABLES = {
  'team': ['name','specialty','hours_day','productivity_rate','days_week','shift','active'],
  'trainings': ['training_code','title','request_date','start_date','end_date','instructor','location','modality','status','workload','planned_cost','actual_cost','participants','validity_days','notes'],
  'materials': ['code','name','unit','quantity','minimum','unit_cost','location'],
+ 'spare_parts': ['asset_id','description','manufacturer_code','manufacturer','sap_code','quantity'],
  'projects': ['name','start','end','owner','notes'],
  'plans': ['name','asset_id','type','interval_days','next_date','hours','specialty','checklist','active'],
- 'orders': ['title','asset_id','type','priority','status','shift','requested_date','due_date','scheduled_date','completed_date','assignee_id','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','failure','cause','action','description','checklist','blocker','project_id','plan_id'],
+ 'orders': ['title','asset_id','type','priority','status','shift','requested_date','due_date','scheduled_date','completed_date','start_time','end_time','assignee_id','estimated_hours','actual_hours','labor_rate','material_cost','downtime_hours','failure','cause','action','description','checklist','blocker','project_id','plan_id'],
 }
 DEFAULTS = {
  'assets': dict(tag='',name='',production_line='',area='',criticality='B',manufacturer='',model='',serial='',operating_hours_month=0,notes=''),
  'team': dict(name='',specialty='Mecânica',hours_day=8,productivity_rate=100,days_week=5,shift='1º turno',active=True),
  'trainings': dict(training_code='',title='',request_date='',start_date='',end_date='',instructor='',location='',modality='Presencial',status='Planejado',workload=1,planned_cost=0,actual_cost=0,participants='',validity_days=365,notes=''),
  'materials': dict(code='',name='',unit='un',quantity=0,minimum=0,unit_cost=0,location=''),
+ 'spare_parts': dict(asset_id='',description='',manufacturer_code='',manufacturer='',sap_code='',quantity=1),
  'projects': dict(name='',start='',end='',owner='',notes=''),
  'plans': dict(name='',asset_id='',type='Preventiva',interval_days=30,next_date='',hours=2,specialty='Mecânica',checklist='',active=True),
- 'orders': dict(title='',asset_id='',type='Preventiva',priority='P3',status='Aberta',shift='1º turno',requested_date='',due_date='',scheduled_date='',completed_date='',assignee_id='',estimated_hours=2,actual_hours=0,labor_rate=0,material_cost=0,downtime_hours=0,failure='',cause='',action='',description='',checklist='',blocker='',project_id='',plan_id=''),
+ 'orders': dict(title='',asset_id='',type='Preventiva',priority='P3',status='Aberta',shift='1º turno',requested_date='',due_date='',scheduled_date='',completed_date='',start_time='',end_time='',assignee_id='',estimated_hours=2,actual_hours=0,labor_rate=0,material_cost=0,downtime_hours=0,failure='',cause='',action='',description='',checklist='',blocker='',project_id='',plan_id=''),
 }
 STATUSES = ['Aberta','Em planejamento','Aguardando material','Programada','Em execução','Concluída','Cancelada']
 TYPES = ['Preventiva','Corretiva','Corretiva emergencial','Corretiva planejada','Preditiva','Inspeção','Melhoria']
@@ -129,7 +132,7 @@ def validate(db, table, incoming):
     data=dict(DEFAULTS[table])
     for key in TABLES[table]:
         if key in incoming: data[key]=incoming[key]
-    required={'assets':['tag','name'],'team':['name'],'trainings':['training_code','title','request_date','start_date','end_date'],'materials':['code','name'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
+    required={'assets':['tag','name'],'team':['name'],'trainings':['training_code','title','request_date','start_date','end_date'],'materials':['code','name'],'spare_parts':['asset_id','description','sap_code'],'projects':['name','start','end'],'plans':['name','asset_id','next_date'],'orders':['title','asset_id','requested_date']}
     for key in required[table]:
         if not str(data[key]).strip(): raise ValueError(f'Preencha o campo {key}.')
     for key,value in data.items():
@@ -157,6 +160,10 @@ def validate(db, table, incoming):
         known={str(row.get('production_line') or '').strip().casefold():row.get('production_line') for row in all_rows(db,'assets') if row.get('production_line')}
         data['production_line']=known.get(data['production_line'].casefold(),data['production_line'])
         if data['production_line'] and data['area']: raise ValueError('Selecione uma linha de produção ou uma área legada, não ambas.')
+    if table=='spare_parts':
+        data['sap_code']=data['sap_code'].strip().upper()
+        data['manufacturer_code']=data['manufacturer_code'].strip()
+        if data['quantity']<1 or data['quantity']%1: raise ValueError('A quantidade utilizada na máquina deve ser um número inteiro maior que zero.')
     if table=='team' and (isinstance(incoming.get('productivity_rate'),bool) or data['productivity_rate']>100): raise ValueError('Taxa de produtividade deve ser entre 0 e 100%.')
     if table=='team' and data['hours_day']>24: raise ValueError('Capacidade diária deve ser até 24 h.')
     if table=='team' and not 1<=data['days_week']<=7: raise ValueError('Dias de trabalho por semana devem ser entre 1 e 7.')
@@ -170,6 +177,8 @@ def validate(db, table, incoming):
     if table=='plans' and (data['interval_days']<1 or data['interval_days']%1): raise ValueError('Periodicidade deve ser um número inteiro de dias, maior que zero.')
     if table=='projects' and data['end']<data['start']: raise ValueError('Fim deve ser posterior ao início.')
     if table=='orders':
+        for time_key in ['start_time','end_time']:
+            if data[time_key] and (not isinstance(data[time_key],str) or not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d',data[time_key])): raise ValueError(f'Horário inválido: {time_key}. Use HH:MM.')
         if data['status'] not in STATUSES or data['priority'] not in ['P1','P2','P3','P4']: raise ValueError('Situação ou prioridade inválida.')
         if data['estimated_hours']<=0: raise ValueError('Informe uma estimativa maior que zero.')
         if data['requested_date']>date.today().isoformat(): raise ValueError('A solicitação não pode ter data futura.')
@@ -217,7 +226,7 @@ class Handler(BaseHTTPRequestHandler):
                 state['audit']=[dict(r) for r in db.execute('SELECT * FROM audit ORDER BY id')]
             return self.send_json(dict(format='pcm-backup-v1',exported_at=datetime.now().isoformat(),data=state))
         path=self.path.split('?')[0]
-        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/orders-import.js':'orders-import.js','/style.css':'style.css','/kpi-team.css':'kpi-team.css'}
+        allowed={'/':'index.html','/app.js':'app.js','/excel-export.js':'excel-export.js','/orders-import.js':'orders-import.js','/spare-parts.js':'spare-parts.js','/style.css':'style.css','/kpi-team.css':'kpi-team.css'}
         if path not in allowed: return self.send_json({'error':'Não encontrado'},404)
         file=ROOT/'public'/allowed[path]
         raw=file.read_bytes(); self.send_response(200); self.send_header('Content-Type',mimetypes.guess_type(file)[0]+'; charset=utf-8'); self.send_header('Content-Length',str(len(raw))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(raw)
@@ -249,6 +258,7 @@ class Handler(BaseHTTPRequestHandler):
                     if incoming.get('format')!='pcm-backup-v1' or not isinstance(incoming.get('data'),dict): raise ValueError('Backup inválido.')
                     payload=incoming['data']
                     payload.setdefault('trainings',[])
+                    payload.setdefault('spare_parts',[])
                     if any(not isinstance(payload.get(t),list) for t in TABLES): raise ValueError('Backup incompleto.')
                     for table in reversed(TABLES): db.execute(f'DELETE FROM {table}')
                     for table in TABLES:
@@ -290,7 +300,7 @@ class Handler(BaseHTTPRequestHandler):
                 if method in ['PUT','DELETE'] and (not rid or not db.execute(f'SELECT id FROM {table} WHERE id=?',(rid,)).fetchone()): return self.send_json({'error':'Registro não encontrado.'},404)
                 if method=='DELETE':
                     if table=='orders': raise ValueError('OS não pode ser excluída. Use Cancelada com justificativa para preservar o histórico.')
-                    refs={'assets': [('orders','asset_id'),('plans','asset_id')], 'team':[('orders','assignee_id')], 'projects':[('orders','project_id')], 'plans':[('orders','plan_id')]}
+                    refs={'assets': [('orders','asset_id'),('plans','asset_id'),('spare_parts','asset_id')], 'team':[('orders','assignee_id')], 'projects':[('orders','project_id')], 'plans':[('orders','plan_id')]}
                     for other,key in refs.get(table,[]):
                         if any(str(row[key])==str(rid) for row in all_rows(db,other)): raise ValueError('Registro vinculado. Remova os vínculos antes de excluir.')
                     db.execute(f'DELETE FROM {table} WHERE id=?',(rid,))
@@ -303,6 +313,7 @@ class Handler(BaseHTTPRequestHandler):
                             if data['status']!=previous['status'] and data['status'] not in TRANSITIONS[previous['status']]: raise ValueError('Transição inválida: '+previous['status']+' → '+data['status']+'.')
                     unique='tag' if table=='assets' else 'code' if table=='materials' else 'training_code' if table=='trainings' else None
                     if unique and any(str(row[unique]).casefold()==data[unique].casefold() and row['id']!=rid for row in all_rows(db,table)): raise ValueError('Código já cadastrado.')
+                    if table=='spare_parts' and any(row['id']!=rid and row['asset_id']==data['asset_id'] and row['sap_code'].casefold()==data['sap_code'].casefold() for row in all_rows(db,table)): raise ValueError('Este código SAP já está cadastrado nesta máquina.')
                     if method=='POST': rid=insert(db,table,data)
                     else: db.execute(f'UPDATE {table} SET payload=? WHERE id=?',(json.dumps(data,ensure_ascii=False),rid))
                 event={'POST':'Criação','PUT':'Atualização','DELETE':'Exclusão'}[method]
